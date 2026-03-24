@@ -5,7 +5,6 @@ title: 相关链接
 draft: "true"
 ---
 
- 
  火山账号管理
 
 	 [Byte BABI](https://babi.bytedance.net/finance/basic/volcManage/?volc_account_category=1&tab=my)
@@ -21,3 +20,7 @@ draft: "true"
 ai 选车项目链接
 
 	[ByteDance SSO](https://code.byted.org/motor/select_car_feature_server)
+
+ai 选车实现 plan_tag_extractor
+
+	https://code.byted.org/motor/motor_dynamic_summary/tree/tr_plan?ref_type=heads
