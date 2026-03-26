@@ -24,3 +24,9 @@ ai 选车项目链接
 ai 选车实现 plan_tag_extractor
 
 	https://code.byted.org/motor/motor_dynamic_summary/tree/tr_plan?ref_type=heads
+
+评价标准
+
+- **评估指标**：https://dcar.feishu.cn/docx/DCH2dhAXVoNvQIxsxhbcQrcvnEc
+    - 严口径可用率(和测试集完全一致)
+    - 宽口径可用率(允许冗余或缺失，但需计算比率)
