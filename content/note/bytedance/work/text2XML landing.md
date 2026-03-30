@@ -4,6 +4,7 @@ tags:
   - llm应用
   - text2SQL
 title: Text2XML 随手记
+draft: "true"
 ---
 
 # 场景分析
