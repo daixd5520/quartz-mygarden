@@ -6,143 +6,142 @@ tags:
 
 ---
 
-title: Home
+title: 首页
 ---
 
-# Hi, I'm Dai Xindi
+# 你好，我是 D
 
-Working on **large language models, decision systems, and scalable learning**.
-Interested in how imperfect models behave inside real-world systems.
+主要关注 **大语言模型（LLM）、强化学习与复杂系统中的决策问题**。
+更具体地说，我对这样一类问题持续感兴趣：
 
----
-
-## 🧠 Research Interests
-
-My work is loosely organized around a central question:
-
-> How to make large models **reliable under constraints** —
-> limited compute, noisy inputs, and structured decision requirements.
-
-This unfolds into three directions:
-
-- **Inference-time control**
-  (routing, uncertainty, selective reasoning)
-
-- **Data efficiency in alignment**
-  (SFT data selection, augmentation, difficulty modeling)
-
-- **System integration**
-  (how LLMs interact with retrieval, ranking, and structured environments)
+> 当模型能力不完美、输入不干净、系统有约束时，
+> 如何让它仍然做出**稳定、可控、可解释的决策**。
 
 ---
 
-## 🚧 Selected Work
+## 🧠 研究方向
 
-Recent work spans both **research prototypes** and **production systems**,
-with a consistent focus on **controllability rather than scale alone**.
+目前的工作可以归纳为三条逐渐收敛的主线：
 
-In industry settings, I worked on integrating LLMs into a structured decision pipeline:
+**推理阶段控制（Inference-time Control）**
+关注在推理时动态分配计算资源，例如根据不确定性决定是否进入多步推理路径，而不是对所有输入一视同仁。
 
-- transforming natural language into executable constraints
-- constraining generation under large schema spaces
-- evaluating whether content *actually answers* a query
-- orchestrating multi-stage inference under latency constraints
+**对齐数据效率（Alignment & SFT）**
+探索如何用更少但更“难”的数据提升模型能力，例如难例挖掘、双向推理增强等方法。
 
-This line of work treats LLMs not as standalone models, but as components in a **decision system**.
+**系统级落地（LLM × System）**
+将大模型嵌入真实系统，与检索、排序、结构化决策模块协同工作，而不是孤立使用。
 
----
+这些方向背后其实是同一个约束：
 
-In parallel, I explored **training and inference efficiency**:
-
-- dynamic reasoning routing (**RICO**)
-  separating fast-path vs. deliberative reasoning based on uncertainty signals
-
-- distributed training and system optimization
-  (DeepSpeed, pipeline parallelism, heterogeneous hardware adaptation)
-
-- retrieval-augmented systems with improved ranking consistency
-
-The common thread is:
-
-> allocating computation where it matters, instead of uniformly increasing it
+> 计算资源是有限的，而任务复杂度是不均匀的。
 
 ---
 
-On the research side, current projects focus on:
+## 💼 经历
 
-- **hard sample mining for SFT** (ASPIRE)
-- **bidirectional reasoning augmentation** (SimSFT)
-- **geometry-aware parameter-efficient transfer** (HOLA)
+### 字节跳动｜懂车帝
 
-These attempts approach the same constraint from different angles:
+**LLM 算法工程师（实习）**
 
-> improving capability without proportional increases in data or parameters
+参与构建“自然语言选车”核心链路，将用户模糊表达转化为结构化决策，并与搜索推荐系统深度耦合。
+
+在**意图结构化**方向，设计并落地 Text2XML 框架，将自然语言约束映射为结构化表达；在大规模汽车参数 Schema 下，引入 **Schema Retrieve（BM25 + 语义模型）**，显著降低上下文复杂度与幻觉风险。
+
+在**内容理解与排序**方向，参与 Motor Dynamic Summary 模块，通过构建 answer_score 与重排模型的分段融合逻辑，约束排序仅在“可回答”前提下增强，从而提升结果有效性。
+
+在**系统编排层**，维护 Select Car Feature Server（Thrift + Gevent），并行化 LLM 子任务、设计召回降级与重启机制，同时补充关键可观测指标以支持线上问题追踪。
+
+这段工作的核心在于：
+
+> 将 LLM 从“生成模型”转化为**受约束的决策模块**。
 
 ---
 
-## 📂 Map
+### UCloud
+
+**系统 / 平台工程实践**
+
+参与云计算与分布式系统相关开发工作，主要关注高并发服务、任务调度与系统稳定性。
+
+在这一阶段，工作重点不在模型，而在系统本身：
+
+涉及 **服务架构设计、资源调度逻辑以及系统性能优化**，需要在吞吐、延迟与稳定性之间做实际权衡，而不是单一指标优化。
+
+同时，这段经历让我建立了一个更具体的认知：
+
+> 系统瓶颈往往不来自模型本身，而来自调度、资源分配与不稳定输入。
+
+这也直接影响了后续在 LLM 方向的选择——
+相比单纯提升模型能力，更关注如何在系统中**约束、调用与分配模型能力**。
+
+---
+
+### 其他项目 / 研究实践
+
+在学术与工程交叉的探索中，持续关注“如何让模型更高效地使用计算资源”：
+
+- **RICO**：基于不确定性的动态推理路径选择
+- **SimSFT / ASPIRE**：面向难例的数据增强与对齐优化
+- **分布式训练优化**：DeepSpeed、流水线并行等实践
+
+这些工作的共性在于：
+
+> 用结构和策略替代一部分“暴力算力”。
+
+---
+
+%% ## 📂 知识结构
 
 ### Research
 
 - [[RLHF]]
 - [[LLM Training]]
 - [[Inference & Routing]]
-- [[Recommendation System]]
+- [[推荐系统]]
 
-### Systems
+### System
 
-- [[Distributed Training]]
-- [[Inference Optimization]]
-- [[System Design]]
+- [[分布式训练]]
+- [[推理优化]]
+- [[系统设计]]
 
 ### Notes
 
-- [[Papers]]
-- [[Fragments]]
-- [[Open Questions]]
+- [[论文]]
+- [[碎片]]
+- [[问题]]
+ %%
+
+%% --- %%
+
+## ✍️ 写作
+
+这里更像是一个工作台，而不是成品展示区。
+记录中间过程、未完成的想法，以及失败的尝试。
 
 ---
 
-## ✍️ Writing
+## 🧬 一些状态
 
-This is not a polished blog.
-
-Most entries are:
-
-- intermediate thoughts
-- partially verified ideas
-- or failed attempts worth keeping
+在高度结构化与完全失控之间来回切换。
+系统不总是稳定，但大多数时候仍然在运行。
 
 ---
 
-## 🧬 Personal
+## 🧭 当前关注
 
-Tends to oscillate between:
-
-- strict structure and complete drift
-- deep focus and total disengagement
-
-The system is not always stable,
-but remains functional.
+- LLM 系统稳定性
+- 推理阶段的计算分配策略
+- 分布外场景下的行为退化
 
 ---
 
-## 🧭 Current Focus
-
-- improving stability in LLM-based systems
-- reducing unnecessary reasoning overhead
-- understanding failure modes under distribution shift
-
----
-
-## 📡 Contact
+## 📡 联系方式
 
 - GitHub: https://github.com/daixd5520
 - Email: daixd5520@gmail.com
 
 ---
 
-## Note
-
-This site is an evolving workspace.
-Incomplete pages are expected.
+这个站点会持续演化。未完成是常态。
