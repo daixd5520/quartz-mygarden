@@ -1,3 +1,13 @@
+```bash
+alias cc="ANTHROPIC_API_KEY=sk-cp-lB2wlR1QMfv1ZhMNx0KxzNy_s0vpEIxLL3XWGCiAg31OW3OvehielcFTpUNd_KZ9fjh4wJvR6_WNq3K3gWFr7ms69vuKrzpIdYhL0ummKVozSuj-IZeImBw \
+ANTHROPIC_BASE_URL=https://api.minimaxi.com/anthropic \
+ANTHROPIC_DEFAULT_OPUS_MODEL=MiniMax-M2.7 \
+ANTHROPIC_DEFAULT_SONNET_MODEL=MiniMax-M2.7 \
+ANTHROPIC_DEFAULT_HAIKU_MODEL=MiniMax-M2.7 \
+CLAUDE_CODE_SUBAGENT_MODEL=MiniMax-M2.5 \
+claude"
+```
+
 """
 
 TODO:
