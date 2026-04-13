@@ -1,0 +1,11 @@
+---
+tags:
+  - 工具
+---
+alias cc="ANTHROPIC_API_KEY=sk-xxx \
+ANTHROPIC_BASE_URL=https://api.minimaxi.com/anthropic \
+ANTHROPIC_DEFAULT_OPUS_MODEL=MiniMax-M2.7 \
+ANTHROPIC_DEFAULT_SONNET_MODEL=MiniMax-M2.7 \
+ANTHROPIC_DEFAULT_HAIKU_MODEL=MiniMax-M2.7 \
+CLAUDE_CODE_SUBAGENT_MODEL=MiniMax-M2.5 \
+claude"
