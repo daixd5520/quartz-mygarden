@@ -1,0 +1,16 @@
+views:
+  - type: table
+    name: 表格
+    filters:
+      and:
+        - file.path.startsWith("resource")
+    order:
+      - file.name
+      - file.size
+      - draft
+      - tags
+      - file.ctime
+      - file.path
+    sort:
+      - property: file.path
+        direction: ASC
