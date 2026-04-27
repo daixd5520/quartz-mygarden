@@ -230,3 +230,25 @@ The sub-agent will return a structured Markdown section that can be directly emb
 >**第一，在 Skill 的元数据中显式声明并行能力。** 在 `SKILL.md` 的 Frontmatter 里，把 `Task`、`Agent` 或你的框架中对应的并行工具列入 `allowed-tools`。这是给模型的**“许可信号”**——如果你不显式声明，一些模型有可能不会主动使用并行。在 `SKILL.md` 中，也要使用**“spawn”**这样的动作词来触发模型的并行意识。
     第二，为每个子任务提供足够具体的指令。** Anthropic 踩过的坑值得所有人引以为戒：模糊的子任务描述会导致重复工作。好的子任务描述应包含四要素——**目标**（做什么）、**边界**（不做什么）、**输出格式**（返回什么）、**工具指导**（用什么工具）。
     **第三，设计好 fan-out / fan-in 的接口。** **fan-out** 是 Lead Agent 如何把任务分发给子 Agent；**fan-in** 则是子 Agent 如何把结果返回给 Lead Agent。两者都需要明确的**数据契约**。在笔者的 EDA Skill 中，每个子任务的输出规范是“至少 2 个 Mermaid 图表 + 文字洞察”，Lead Agent 在 Phase 3 会按照固定的报告模板把这些素材组装成最终报告。
+
+```Go
+# 目录结构
+MySkill/
+├── SKILL.md                # 必填！技能的灵魂（使用说明书）
+├── scripts/                # 可选！放你的业务代码（Python/Node.js/Go都可以）
+│   └── main.py
+└── references/             # 可选！放一些长篇的补充文档（防 SKILL.md 太长）
+
+# Skill.md
+# 头部---部分，必须是YAML格式的元数据，用来让大模型识别它。正文则是教大模型怎么用你的Skill。
+---
+name: my-first-skill
+description: 当用户需要查某某数据时，使用这个技能。
+---
+
+# 使用指南
+1. 当你需要查数据时，请明确要求用户提供 user_id。
+2. 然后执行以下命令去获取数据：
+   `python scripts/main.py --user_id <user_id>`
+3. 拿到结果后，请用表格形式回复给用户。
+```
