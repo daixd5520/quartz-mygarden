@@ -1,12 +1,12 @@
-最小编辑距离
+### 最小编辑距离
 
-无重复最大子串
+### 无重复最大子串
 
-最长严格递增字串
+### 最长严格递增字串
 
-接雨水
+### 接雨水
 
-岛屿个数
+### 岛屿个数
 
 ### 反转链表
 
@@ -30,7 +30,5 @@ https://leetcode.cn/problems/reverse-nodes-in-k-group/solutions/3960295/qing-xi-
 - 由于题目要求不到k个的不用反转，所以我们需要先用一个check去探路。不到k个直接返回当前的状态
 - 用cur从head开始遍历，进行k步基本的反转操作（prev一开始设置为空）
 - 进行连接操作：
-- ![[LeetCode-1.png]]
-- ```cpp file:cpp
-  
-  ```
+- ![[LeetCode-1.png|560]]
+- ![[LeetCode-2.png|453]]
