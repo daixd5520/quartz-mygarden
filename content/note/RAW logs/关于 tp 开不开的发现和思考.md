@@ -1,285 +1,75 @@
+---
+tags:
+  - landing
+  - inference
+  - 推理优化
+draft: "true"
+---
+
 ![[关于 tp 开不开-1.png]]
 
-事情是这样的：我以前一直以为 一张卡放得下的话，tp1 肯定比 tp>1 快，因为卡间通讯需要时间
+一个和直觉反的发现：A100 + SGLang 部署 1.7B 和 4B 模型，QPS=1 的时候，tp=2 比 tp=1 更快。按过去的经验——只要一张卡塞得下，tp=1 一定比 tp>1 快，因为省了 all-reduce——这结论是反的。问 GPT 加上自己翻 profile，能拼出一个比较干净的解释：**瓶颈没到通信上，而在单卡算力/带宽利用率；tp=2 恰好把模型从 memory-bound 的低效区推到更均衡的工作点上**。下面把机制拆开写。
 
-可是 A100, sglang 部署 1.7B 和 4B 的模型，QPS=1 的情况下都是 tp2 比较快
+## 负载抽象：decode 阶段是"小 batch、低并行度"的重复小算子
 
-问了 gpt 发现通讯没打满的情况下，tp 还可能增大 tensor core 的利用率
+QPS=1、单条自回归 decode，每一步本质是：
 
-这个现象本身是**正常的**，但前提是：你现在的瓶颈**不在通信，而在单卡算力/带宽利用率**。否则 tp=2 理论上只会更慢。
+$$
+h_{t+1} = \mathrm{Transformer}(h_t)
+$$
 
-我直接把机制拆开讲清楚。
+每一步的 GEMM 规模是 hidden × hidden（4096 × 4096 级别），batch=1，序列在 decode 阶段实际参与 attention 计算的只有新 token。这种形状对 Tensor Core 很不友好，kernel launch overhead 和 HBM latency 在总时间里占比很高。
 
----
+## tp=1：算力没吃满，带宽却已经紧张
 
-# 一、先把问题抽象成计算模型
+单卡放 4B 参数，GEMM 形状固定但小，几乎没有并发空间。拿 profile 看：
 
-4B 模型，单 query，并发=1，本质是：
+- SM occupancy 不高，Tensor Core tile 对不齐，FLOPs utilization 低。
+- 每步 decode 都要把权重从 HBM 拉一遍、再把 KV cache 拉一遍，实测 dram utilization 很高。
 
-> **单条自回归 decode：逐 token 推理**
+这是典型的 **memory-bound + kernel launch 重**场景：GPU 在等数据，不在等算。
 
-每一步是：
+## tp=2：看似多通信，实际是把瓶颈拆掉
 
-[  
-h_{t+1} = \text{Transformer}(h_t)  
-]
+tp=2 把权重沿 hidden 维切两半分到两张卡，每步加一次 all-reduce / all-gather。表面上是"多了一步通信会变慢"，实际能变快的原因：
 
-关键在于：
+1. **HBM 带宽近似翻倍**。权重和 KV cache 一半在卡 0、一半在卡 1，单卡带宽压力对半砍，原本被带宽卡住的 decode 能跑得更快。
+2. **单卡 GEMM 变小，kernel 更 friendly**。切完之后 sub-matrix 的尺寸反而更容易对齐 Tensor Core tile（128/256），Tensor Core 利用率提升。
+3. **compute 和 communication 能 overlap**。SGLang / vLLM / TensorRT-LLM 的 stream pipeline 会把下一步的 GEMM 和当前的 NVLink 通信并行起来，通信不是串行加到总延迟上。
+4. **两个中等利用率的卡**比一个低利用率的卡总吞吐更高。
 
-> **每一步都是小 batch、低并行度计算**
+简单写成 latency 分解：
 
----
+$$
+T = T_{\text{compute}} + T_{\text{memory}} + T_{\text{launch}} + T_{\text{comm}}
+$$
 
-# 二、tp=1 时发生了什么
+- tp=1：$T_{\text{memory}}$ 大，$T_{\text{compute}}$ 没吃满，$T_{\text{comm}}=0$。
+- tp=2：$T_{\text{memory}} \downarrow$，$T_{\text{compute}} \uparrow$（利用率提升），$T_{\text{comm}} \uparrow$ 但被 overlap 吃掉。
 
-单卡跑 4B：
+两张卡的 NVLink 带宽在 A100 上是很充足的（600 GB/s 级别），all-reduce 单次的 payload 对 4B 模型每层只有几个 MB，所以 `T_comm` 很难成为瓶颈。
 
-- 参数全在一张卡
-- 每层 GEMM 规模是固定的（比如 hidden 4096 × 4096）
+## 什么时候 tp=2 反而输
 
-问题在于：
+这个结论不是普适的，以下三种情况会反转：
 
-### 👉 GPU 并没有被吃满
+1. **batch 拉大**。一旦 batch ≥ 8 或 16，单卡已经到 compute-bound 区间，通信就是纯开销。
+2. **模型更大**。13B+ 的模型在单卡已经 compute heavy，tp=2 只能帮你解决显存装不下的问题，不会再快。
+3. **跨 PCIe 或跨机通信**。NVLink 不在了，带宽骤降，tp 引入的 all-reduce 直接变成主要延迟。
 
-原因是：
+## 想确认上面这套说法，直接看 profile
 
-### **1. GEMM 尺寸不够“理想”**
+Nsight Systems / DCGM 里盯四个指标：
 
-对于 GPU（尤其是 Tensor Core）来说：
+- SM occupancy
+- DRAM utilization
+- NVLink utilization
+- kernel time vs memcpy time
 
-- 最优是大矩阵（比如 batch 大）
-- 但你现在是：
-    - batch = 1
-    - seq 很短（decode阶段）
+tp=1 大概率是 DRAM 很高、SM 不满；tp=2 会看到 DRAM 降、SM 升、NVLink 有占用但不是瓶颈。这一组指标对上了，就可以相信"带宽分摊 + Tensor Core friendly + overlap"这个解释。
 
-👉 导致：
+## 一句话收束
 
-> **算子 launch overhead + memory latency 占比很高**
+tp 开不开不是"通信是否昂贵"的问题，而是"你当前的负载处在哪条瓶颈曲线上"。decode 阶段、小 batch 这一档，tp=2 是在用一点通信换一大段 HBM 带宽和 SM 利用率；把 batch 拉起来或者换更大的模型，结论会立刻反转。
 
----
-
-### **2. memory-bound 明显**
-
-Transformer decode 很多操作是：
-
-- KV cache 读取
-- 小矩阵乘
-
-这些是典型：
-
-> **memory bandwidth bound，而不是 compute bound**
-
----
-
-# 三、tp=2 发生了什么（关键）
-
-tp=2 本质是：
-
-> **把权重按 hidden 维切成两半，分布到两张卡**
-
-每一步变成：
-
-- 每张卡算一半 GEMM
-- 然后 **all-reduce / all-gather**
-
----
-
-## 表面看：多了通信，应该更慢
-
-但你现在变快，说明一个事实：
-
-> **通信开销 < 单卡未利用的算力浪费**
-
----
-
-## 真正的加速来源是这几个点
-
-### **1. 提高了 SM 利用率**
-
-原来：
-
-- 一个大 kernel 没吃满 SM
-
-现在：
-
-- 拆成两个更“适配硬件”的 kernel
-- 两张卡各自跑
-
-👉 等价于：
-
-> **把低利用率 → 两个中等利用率**
-
----
-
-### **2. L2 / HBM 带宽压力被分摊**
-
-原来：
-
-- KV cache / 权重 全压在一张卡
-- bandwidth saturation
-
-现在：
-
-- 一半数据在卡1
-- 一半在卡2
-
-👉 实际效果：
-
-> **memory bandwidth ×2（近似）**
-
-这点在 decode 阶段非常关键。
-
----
-
-### **3. kernel launch / pipeline overlap 更好**
-
-现代推理框架（比如 vLLM / TensorRT-LLM）会：
-
-- overlap compute 和通信
-- stream pipeline
-
-所以实际不是：
-
-> compute → 通信 → compute
-
-而是：
-
-> **compute 和 communication overlap**
-
----
-
-### **4. hidden size 切分后更“Tensor Core friendly”**
-
-有些维度在 tp=1 时：
-
-- 不能很好对齐 Tensor Core tile（比如 128/256）
-
-tp=2 后：
-
-- 子矩阵尺寸更规整
-
-👉 提高了：
-
-> **FLOPs utilization**
-
----
-
-# 四、什么时候 tp=2 会变慢？
-
-这个现象不是普适的，它成立有前提。
-
-如果出现下面情况，tp=2 会输：
-
----
-
-### **1. batch size 提高**
-
-当：
-
-- batch > 8 或 16
-
-👉 单卡已经吃满：
-
-> **compute-bound**
-
-这时：
-
-> 通信 = 纯负担
-
----
-
-### **2. 模型更大（比如 13B+）**
-
-这时：
-
-- 单卡已经 compute heavy
-
-tp=2：
-
-- 通信比例变大
-
----
-
-### **3. 跨机通信（不是 NVLink）**
-
-如果是：
-
-- PCIe
-- 或者跨节点
-
-👉 带宽骤降
-
-tp=2 会直接掉速
-
----
-
-# 五、你这个 case 的本质一句话
-
-> **你现在在“单卡低利用率区间”，tp=2 帮你把计算从 memory-bound 拉向更均衡状态。**
-
----
-
-# 六、一个更底层的理解（很关键）
-
-把 latency 拆开：
-
-[  
-T = T_{compute} + T_{memory} + T_{launch}  
-]
-
-tp=1：
-
-- T_memory 很大
-- T_compute 没吃满
-
-tp=2：
-
-- T_memory ↓（分摊）
-- T_compute ↑（利用率提升）
-- T_comm ↑（但被 overlap）
-
-最终：
-
-[  
-T_{total} ↓  
-]
-
----
-
-# 七、工程上你可以验证的点
-
-如果你想确认我说的是对的，可以直接看 profile：
-
-- **SM occupancy**
-- **dram utilization**
-- **nvlink utilization**
-- **kernel time vs memcpy time**
-
-你会看到：
-
-👉 tp=1：
-
-- dram 很高
-- sm 不满
-
-👉 tp=2：
-
-- dram 降
-- sm 升
-- nvlink 有占用但没成为瓶颈
-
----
-
-# 收束
-
-这个现象不是“tp=2更强”，而是：
-
-> **你的当前负载让单卡处在低效区，而 tp=2 恰好把它推回高效区。**
-
-如果把 batch 拉起来，你会看到结论反转。
-
----
-
-如果继续往下挖，这里其实有个更有意思的问题：
-
-> **为什么 decode 阶段几乎永远是 memory-bound，而 prefill 更偏 compute-bound？**
+还能再往下挖的一个问题是：**为什么 decode 阶段几乎永远是 memory-bound，而 prefill 更偏 compute-bound？** 这个留到下一篇。

@@ -5,85 +5,78 @@ tags:
   - 项目
 ---
 
-# 什么是nanobot？
+## nanobot 是什么
 
 > https://github.com/HKUDS/nanobot
 
-源于OpenClaw，一个极致轻量化的AI个人助理。
+nanobot 是一个极致轻量化的 AI 个人助理，源于 OpenClaw。和 OpenClaw、Manus、Claude Code 同属一类产品，只是作者用 Python 重写了一遍，大约用 OpenClaw 的 1% 代码量复刻了同等量级的能力。
 
-和大家所熟知的OpenClaw、Manus、Claude code是一个东西，没错，和OpenClaw已经160w行的代码数量相比，作者用python对OpenClaw进行了重构，nanobot只用了大约 1% 代码复刻了 OpenClaw 同等量级的功能。
+读这篇笔记能顺着代码搞清楚两件事：一个 agent 框架从零到可用大致长什么样，以及 nanobot 在 OpenClaw 基础上做了哪些抽象上的优化。
 
-阅读文本你可以了解到：
+极致精简的代码量背后是良好的抽象与设计，同时也更适合用来做研究学习。nanobot 的主要能力：
 
-1. 如何从零实现一个AI个人助理（agent框架）
-2. nanobot在openclaw的基础上做了哪些优化抽象
+- **ReAct Loop**：当前主流的 agent 推理循环
+- **上下文管理**：自动的上下文压缩策略
+- **双层 memory 系统**：长期事实记忆 + 历史记录
+- **10+ 聊天渠道**：Telegram、Discord、飞书、钉钉、微信、Slack、QQ、Email、WhatsApp、Matrix
+- **20+ LLM 供应商**：OpenAI、Claude、DeepSeek、Gemini、通义千问、Kimi 等
+- **MCP 协议**
 
-极致精简的代码量背后是良好的抽象与设计，同时也更适合于研究学习。首先来看下nanobot的能力：
+## 整体架构
 
-1. **ReAct Loop：Agent推理循环，目前主流的Agent范式
-2. **上下文管理：自动的上下文压缩策略
-3. **双层memory系统：**长期记忆+历史记录
-4. **支持10+聊天渠道：**Telegram、Discord、飞书、钉钉、微信、Slack、QQ、Email、WhatsApp、Matrix
-5. **支持20+LLM供应商：**OpenAI、Claude、DeepSeek、Gemini、通义千问、Kimi……
-6. **支持MCP协议**
+### 架构分层
 
-# 整体架构
-
-## 架构设计
-
-下面是github上给的架构图，整体比较简略但是包含了nanobot核心的模块
+GitHub 上给的架构图比较简略，但足以看清核心模块。
 
 ![[Tech--Nanobot 学习-1.png]]
-**详细架构图**
 
-nanobot整体架构上可以分为4层：
+整体分四层：
 
-- Access Layer：命令行工具CLI、聊天工具
-- Message Bus Layer：封装的消息总线，通过两个Queue抽象了消息的发送接收，屏蔽了不同 Channel 聊天平台的差异
-- Agent Core Layer：核心部分，包含ReAct Loop、Context上下文管理、Memory管理、Skill、LLM Providers
-- Infrastructure Layer：包括Cron定时任务、心跳检测、session会话管理、安全、配置加载等
+- **Access Layer**：命令行工具 CLI、聊天工具
+- **Message Bus Layer**：封装的消息总线，两个 Queue 抽象了消息的收发，屏蔽了不同 Channel 聊天平台的差异
+- **Agent Core Layer**：核心部分，包含 ReAct Loop、Context 上下文管理、Memory 管理、Skill、LLM Providers
+- **Infrastructure Layer**：Cron 定时任务、心跳检测、session 会话管理、安全、配置加载
 
 ![[Tech--Nanobot 学习-2.png]]
-## **项目结构**
 
-> 比较清晰，一目了然
+### 项目结构
 
-```Python
+```python
 nanobot/
-├── nanobot/                    # 🧠 【核心 Python 包】系统的大脑和躯干
-│   ├── agent/                 # 🤖 核心代理层 (Agent Core)
+├── nanobot/                    # 核心 Python 包
+│   ├── agent/                 # 核心代理层 (Agent Core)
 │   │   ├── loop.py            #   ReAct 主循环 (思考->行动->观察)
 │   │   ├── context.py         #   Prompt 组装车间
 │   │   ├── memory.py          #   记忆系统 (长短期记忆合并与持久化)
 │   │   ├── skills.py          #   技能加载与解析器
 │   │   ├── subagent.py        #   子任务/子代理管理器
-│   │   └── tools/             #   🛠️ 内置工具库
-│   ├── bus/                   # 🚌 消息总线 (Message Bus)
+│   │   └── tools/             #   内置工具库
+│   ├── bus/                   # 消息总线 (Message Bus)
 │   │   ├── events.py          #   定义标准消息结构 (Inbound/Outbound)
 │   │   └── queue.py           #   异步队列，解耦 Channels 和 Agent
-│   ├── channels/              # 🔌 渠道适配层 (Channel Adapters)
-│   │   ├── base.py            #   渠道基类 (定义公共接口如接收、发送、权限校验)
+│   ├── channels/              # 渠道适配层 (Channel Adapters)
+│   │   ├── base.py            #   渠道基类 (公共接口: 接收、发送、权限校验)
 │   │   ├── telegram.py        #   Telegram 机器人接入
 │   │   ├── feishu.py          #   飞书接入
-│   │   └── ... (Slack, Email, DingTalk 等)
-│   ├── providers/             # 🧠 模型适配层 (LLM Providers)
-│   ├── skills/                # 🎯 内置技能包 (Built-in Skills)
-│   ├── session/               # 💬 会话管理 (Session Management)
-│   ├── cron/                  # ⏰ 定时任务 (Cron Jobs)
-│   ├── heartbeat/             # 💓 心跳服务 (Heartbeat)
-│   ├── config/                # ⚙️ 配置管理 (Configuration)
-│   ├── cli/                   # 🖥️ 命令行界面 (Command Line Interface)
-│   └── utils/                 # 🧰 通用工具类
-└── docs/                      # 开发者文档（如插件开发指南）
+│   │   └── ...                #   Slack, Email, DingTalk 等
+│   ├── providers/             # 模型适配层 (LLM Providers)
+│   ├── skills/                # 内置技能包 (Built-in Skills)
+│   ├── session/               # 会话管理
+│   ├── cron/                  # 定时任务
+│   ├── heartbeat/             # 心跳服务
+│   ├── config/                # 配置管理
+│   ├── cli/                   # 命令行界面
+│   └── utils/                 # 通用工具类
+└── docs/                      # 开发者文档
 ```
 
-# 深度解析
+## 深度解析
 
-## Agent的核心 - ReAct Loop
+### ReAct Loop
 
-ReAct（Reasoning + Acting）是目前最主流的 Agent 范式。将COT（Chain of Thought，思维链）和工具调用相结合，模拟人类思考与行动的过程，直白点说，就是让LLM进行「推理 - 工具调用 - 推理」不断循环，并根据行动反馈调整策略，最终解决问题。
+ReAct（Reasoning + Acting）把 CoT 和工具调用拼起来，模拟"推理 - 调用工具 - 再推理"的循环，是当前主流的 agent 范式。nanobot 的实现很干净：
 
-```Python
+```python
 async def _run_agent_loop(self, initial_messages, on_progress) -> tuple[str | None, list[str], list[dict]]:
     """Run the agent iteration loop."""
     messages = initial_messages
@@ -92,7 +85,7 @@ async def _run_agent_loop(self, initial_messages, on_progress) -> tuple[str | No
     while iteration < self.max_iterations:
         iteration += 1
         tool_defs = self.tools.get_definitions()
-        # 第一步 💡调用LLM推理
+        # 调用 LLM 推理
         response = await self.provider.chat_with_retry(
             messages=messages,
             tools=tool_defs,
@@ -103,55 +96,51 @@ async def _run_agent_loop(self, initial_messages, on_progress) -> tuple[str | No
                 tc.to_openai_tool_call()
                 for tc in response.tool_calls
             ]
-            # 🤖 LLM推理结果加入上下文
+            # 把 LLM 推理结果加入上下文
             messages = self.context.add_assistant_message(messages, response.content, tool_call_dicts)
-            # 第二步 🔧 工具调用
+            # 执行工具调用
             for tool_call in response.tool_calls:
                 result = await self.tools.execute(tool_call.name, tool_call.arguments)
-                # 📃 工具调用结果加入上下文
+                # 工具结果加入上下文
                 messages = self.context.add_tool_result(
                     messages, tool_call.id, tool_call.name, result
                 )
         else:
             clean = self._strip_think(response.content)
-            # Don't persist error responses to session history — they can
-            # poison the context and cause permanent 400 loops
+            # 不把 error response 写回 session history，避免污染上下文导致持续 400
             if response.finish_reason == "error":
                 ...
             messages = self.context.add_assistant_message(...)
             final_content = clean
             break
-            
+
     if final_content is None and iteration >= self.max_iterations:
         logger.warning("Max iterations ({}) reached", self.max_iterations)
         final_content = (
             f"I reached the maximum number of tool call iterations ({self.max_iterations}) "
             "without completing the task. You can try breaking the task into smaller steps."
         )
-        
+
     return final_content, tools_used, messages
 ```
 
-## 上下文管理 - ContextBuilder
+这里有个细节值得注意：`finish_reason == "error"` 时不把 response 写回历史。错误响应一旦进上下文就会反复污染后续调用，是生产环境容易踩的坑。
 
-ContextBuilder负责Agent的上下文管理，上下文包含以下部分：
+### 上下文管理 — ContextBuilder
 
-- runtime_ctx：运行时信息包括channel、chatID
-- user_content：用户输入，支持多模态，_build_user_content里面封装了多模态数据的解析，调用外部工具
-- system_prompt：
-    - _get_identity：nanobot身份信息
+ContextBuilder 负责把 agent 每次调用的完整上下文拼出来，包含：
 
-      `# nanobot 🐈 You are nanobot, a helpful AI assistant.`
+- **runtime_ctx**：运行时信息，channel、chatID
+- **user_content**：用户输入，支持多模态；`_build_user_content` 内部封装多模态数据解析，必要时调外部工具
+- **system_prompt**：
+  - `_get_identity`：身份信息（`# nanobot 🐈 You are nanobot, a helpful AI assistant.`）
+  - `_load_bootstrap_files`：加载 `["AGENTS.md", "SOUL.md", "USER.md", "TOOLS.md"]`
+  - 短期记忆：从 memory 模块加载
+  - skill：常驻 skill 的 `SKILL.md` 全量进 context；其他 skill 走渐进式披露，只挂一个 summary（`name` + `description`）
 
-    - _load_bootstrap_files：`["AGENTS.md", "SOUL.md", "USER.md", "TOOLS.md"]`
-    - 短期记忆：从memory加载
-    - skill：
-        - 常驻skill：整个`skill.md`加载到context
-        - 其他skill：（**渐进式披露**）只加载summary信息`name、description`
+对话中后续的信息和工具调用都会追加到 context 上。
 
-后续和nanobot对话中的信息和工具调用都会加入到context当中
-
-```Python
+```python
 class ContextBuilder:
     """Builds the context (system prompt + messages) for the agent."""
 
@@ -160,15 +149,15 @@ class ContextBuilder:
     def build_system_prompt(self, skill_names: list[str] | None = None) -> str:
         """Build the system prompt from identity, bootstrap files, memory, and skills."""
         parts = [self._get_identity()]
-        # 加载引导文件 ["AGENTS.md", "SOUL.md", "USER.md", "TOOLS.md"]
+        # 加载引导文件
         bootstrap = self._load_bootstrap_files()
-       
-        # 🧠 加载短期记忆
+
+        # 加载短期记忆
         memory = self.memory.get_memory_context()
-        
+
         # 加载常驻技能
         always_skills = self.skills.get_always_skills()
-       
+
         # 加载技能摘要
         skills_summary = self.skills.build_skills_summary()
         if skills_summary:
@@ -181,15 +170,13 @@ Skills with available="false" need dependencies installed first - you can try in
 
         return "\n\n---\n\n".join(parts)
 
-    def build_messages(self, history, current_message, skill_names, media, channel,chat_id,current_role) -> list[dict[str, Any]]:
+    def build_messages(self, history, current_message, skill_names, media, channel, chat_id, current_role) -> list[dict[str, Any]]:
         """Build the complete message list for an LLM call."""
-        # 运行时
         runtime_ctx = self._build_runtime_context(channel, chat_id)
-        # 用户输入 支持多模态 _build_user_content里面封装了多模态数据的解析，调用外部工具
         user_content = self._build_user_content(current_message, media)
 
-        # Merge runtime context and user content into a single user message
-        # to avoid consecutive same-role messages that some providers reject.
+        # 把 runtime context 和 user content 合到同一条 user 消息里，
+        # 避免某些 provider 拒绝连续同 role 消息
         if isinstance(user_content, str):
             merged = f"{runtime_ctx}\n\n{user_content}"
         else:
@@ -200,104 +187,84 @@ Skills with available="false" need dependencies installed first - you can try in
             *history,
             {"role": current_role, "content": merged},
         ]
-        
-    def add_tool_result()
-    def add_assistant_message()
+
+    def add_tool_result(): ...
+    def add_assistant_message(): ...
 ```
 
-## Agent记忆系统 - Memory
-### 双层记忆系统
+"合并 runtime context 和 user content 进同一条 user 消息"这个处理很细节——不少 provider（包括 Claude）不允许连续同 role 的消息，这种合并是踩过坑之后才会加的。
 
-nanobot的记忆系统由长期事实记忆MEMORY.md 、可搜索的历史记录HISTORY.md组成
+### Memory — 双层记忆
 
-```Python
+nanobot 的记忆系统由长期事实 `MEMORY.md` + 可搜索历史 `HISTORY.md` 组成。
+
+```python
 class MemoryStore:
     """Two-layer memory: MEMORY.md (long-term facts) + HISTORY.md (grep-searchable log)."""
 ```
 
-|   |   |   |
-|---|---|---|
-||MEMORY.md|HISTORY.md|
-|介绍|长期事实记忆，大脑中的认知|按时间戳记录的grep友好的历史日志|
-|读取时间|每轮对话都会读取，加载进system_prompt|按需搜索|
-|写入方式|全量覆盖写|尾部追加append|
+|  | MEMORY.md | HISTORY.md |
+| --- | --- | --- |
+| 定位 | 长期事实记忆，相当于 agent 的大脑认知 | 带时间戳的 grep 友好历史日志 |
+| 读取时机 | 每轮对话都加载进 system prompt | 按需搜索 |
+| 写入方式 | 全量覆盖写 | 尾部 append |
 
-**MEMORY.md为啥是全量覆盖写？**
+**为什么 MEMORY.md 是全量覆盖写？** 它是长期事实记忆——相当于 agent 的世界模型，新的事实往往需要修正旧的认知，而不是简单追加。更新 MEMORY.md 的 prompt 也是这个逻辑：返回一份完整的、合并了新旧事实的新版本；若没有新信息，原样返回。
 
-MEMORY.md是「长期事实记忆」相当于nanobot中的大脑认知，这份认知可能被更新（更新旧的内容），而不是追加。
+### Memory 归档机制 — consolidate
 
-> 更新**MEMORY.md prompt：** full updated long-term memory as markdown. Include all existing facts plus new ones. Return unchanged if nothing new.
+LLM 上下文窗口有限（nanobot 默认 64K），对话变长必然会撞到上限，需要一套归档机制。整体流程：
 
-### 归档机制 - consolidate
+1. **触发时机**：收到用户消息时同步触发；后台协程空闲异步执行；用户输入 `/new` 清空会话时强制归档
+2. **加锁**：用 `session.key` 加锁，避免后台异步任务并发执行
+3. **Chunk 选取**：判断当前消息 token 超出安全上限后，在自然对话轮次处切一刀（`pick_consolidation_boundary`），取最老的一批未归档消息作为 chunk
+4. **记忆合并（MEMORY.md）**：把 chunk 连同现有 `MEMORY.md` 整体喂给大模型，通过 `save_memory` 工具把新老知识融合成一份新 memory，然后**完全覆盖**原 `MEMORY.md`
+5. **历史追加（HISTORY.md）**：模型同时输出一份该 chunk 的摘要（`history_entry`），**append** 进 `HISTORY.md`，构成线性增长的时间线
+6. **滑动窗口**：单轮归档完成后游标前移；若剩余未归档 token 还高于 `context_window_tokens / 2`（默认 32K），继续循环
 
-LLM的上下文窗口是有限制的，当对话越来越长，会触发上下文窗口的限制，需要有一种机制来处理这个问题。
-
-> nanobot上下文窗口限制 64K
-
-1. **触发时机**
-
-- 收到用户消息同步触发
-- 后台协程空闲时异步执行
-- 强制归档，当用户输入 /new 清空当前会话时，旧消息会被强制进行归档
-
-2. **加锁**
-
-用session.key进行加锁，避免和后台异步任务并发执行
-
-3. **Chunk选取** 一旦判断当前消息的 Token 超出最大安全限制，系统会在**自然对话轮次**处切一刀（`pick_consolidation_boundary`），将最老的一批未归档消息（Chunk）提取出来
-4. **记忆的更新与合并 (MEMORY.md 逻辑)**
-
-提取出来的消息不会直接简单追加，而是连同现有的 `MEMORY.md` 整体喂给大模型，大模型通过工具调用 (`save_memory`) 将新老知识融合成一份**全新的长期记忆 (****`memory_update`****)，然后完全覆盖（Overwrite）** 现存的 `MEMORY.md`
-
-4. **历史记录的追加 (HISTORY.md 逻辑)**
-
-大模型同时会输出一份关于这段切片发生的摘要动作 (`history_entry`)，以追加（Append）形式写入 `HISTORY.md`，构建出一个纯线性增长的历史记录
-
-5. **滑动窗口**
-
-一轮归档完成后，游标 `last_consolidated` 前移。如果剩余未归档部分消息的 Token 量依然很大（context_window_tokens / 2，默认64k / 2），则不断循环这一过程
-
-一个很实用的稳定性设计：如果连续多次 consolidate 失败，nanobot 会降级为 raw archive（把原始消息直接 dump 到 HISTORY.md），宁可“记得粗糙”，也不要阻塞主流程
+一个实用的稳定性设计：如果连续多次 consolidate 失败，nanobot 会降级为 raw archive——把原始消息直接 dump 到 `HISTORY.md`。宁可记得粗糙也不要阻塞主流程，这种 graceful degradation 是 agent 系统里被严重低估的设计习惯。
 
 ![[Tech--Nanobot 学习-4.png]]
 
-## 渐进式加载 - Skill
+### Skill 的渐进式加载
 
-```Python
+```python
 def build_system_prompt(self, skill_names: list[str] | None = None) -> str:
     """Build the system prompt from identity, bootstrap files, memory, and skills."""
     parts = [self._get_identity()]
-    # 加载引导文件 ["AGENTS.md", "渐进式披露", "USER.md", "TOOLS.md"]
     bootstrap = self._load_bootstrap_files()
-    
-    # 🧠 加载短期记忆
+
+    # 加载短期记忆
     memory = self.memory.get_memory_context()
     if memory:
         parts.append(f"# Memory\n\n{memory}")
-    
+
     # 加载常驻技能
     always_skills = self.skills.get_always_skills()
     if always_skills:
         always_content = self.skills.load_bootstrap_files(always_skills)
         if always_content:
             parts.append(f"# Active Skills\n\n{always_content}")
-    
-    # 加载技能摘要
+
+    # 加载技能摘要（非常驻）
     skills_summary = self.skills.build_skills_summary()
     if skills_summary:
         parts.append(f"""# Skills
 The following skills extend your capabilities. To use a skill, read its SKILL.md file using the read_file tool.
-Skills with available="false" need dependencies installed first - you can try installing them with available="false" need dependencies installed first - you can try installing them with apt/brew.{skills_summary}
+Skills with available="false" need dependencies installed first - you can try installing them with apt/brew.
+{skills_summary}
 """)
-    
+
     return "\n\n---\n\n".join(parts)
 ```
 
-## 消息总线 - MessageBus
+常驻 skill 直接把 `SKILL.md` 塞进 system prompt；其他 skill 只挂 summary，用到时让模型自己 `read_file` 去取。这就是 Anthropic Skills 推的那套 Progressive Disclosure，nanobot 照抄没改。
 
-MessageBus定义两个队列，一进一出用于发送消息和接收消息
+### 消息总线 — MessageBus
 
-```Python
+MessageBus 里定义两个队列，inbound / outbound 各一条，用来解耦 channel 和 agent core。
+
+```python
 class MessageBus:
     """
     Async message bus that decouples chat channels from the agent core.
@@ -325,41 +292,34 @@ class MessageBus:
     async def consume_outbound(self) -> OutboundMessage:
         """Consume the next outbound message (blocks until available)."""
         return await self.outbound.get()
-        
- 
 ```
 
-BaseChannel是channel的基类，每一个channel子类都会调用基类的`_handle_message`方法，实现消息的统一处理和解耦
+`BaseChannel` 是 channel 基类，所有子类都走基类的 `_handle_message` 把消息塞进 inbound 队列，天然做到统一处理和解耦。
 
-```Python
+```python
 class BaseChannel(ABC):
-     async def _handle_message(self,sender_id,chat_id,content,media,metadata,session_key) -> None:
-        """
-        Handle an incoming message from the chat platform.
-        """
-        
+    async def _handle_message(self, sender_id, chat_id, content, media, metadata, session_key) -> None:
+        """Handle an incoming message from the chat platform."""
         await self.bus.publish_inbound(msg)
 ```
 
-# 快速上手/开发指南
+## 快速上手
 
-安装
+安装：
 
-```Bash
-# 安装
+```bash
 uv tool install nanobot-ai
 ```
 
-初始化
+初始化：
 
-```Bash
-# 初始化配置
+```bash
 nanobot onboard
 ```
 
-需要配置API Key `vim ~/.nanobot/config.json`
+配置 API Key，`vim ~/.nanobot/config.json`：
 
-```JSON
+```json
 {
   "agents": {
     "defaults": {
@@ -373,52 +333,46 @@ nanobot onboard
       "reasoningEffort": null
     }
   },
-  ...
   "providers": {
     "openrouter": {
       "apiKey": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxx",
-      "apiBase": "https://ark-cn-beijing.bytedance.net/api/v3", // 使用方舟上的模型需要配置这个
+      "apiBase": "https://ark-cn-beijing.bytedance.net/api/v3",
       "extraHeaders": null
-    },
+    }
   }
-}  
+}
 ```
 
-开始对话
+启动对话：
 
-```Bash
-# 开始对话
+```bash
 nanobot agent
 ```
 
 ![[Tech--Nanobot 学习-3.png]]
-## 对接飞书机器人
 
-修改配置`vim ~/.nanobot/config.json`
+### 对接飞书机器人
 
-```JSON
+同样改 `~/.nanobot/config.json`：
+
+```json
 {
-    "feishu": {
-        "enabled": true,
-        "appId": "cli_a94f94d0cd79dcc9",
-        "appSecret": "GiTsoeePmZSUBiwi2l46reeUdJZXMlFR",
-        "encryptKey": "",
-        "verificationToken": "",
-        "allowFrom": [
-            "*"
-        ],
-        "reactEmoji": "THUMBSUP",
-        "groupPolicy": "mention",
-        "replyToMessage": false
-    }
+  "feishu": {
+    "enabled": true,
+    "appId": "cli_a94f94d0cd79dcc9",
+    "appSecret": "GiTsoeePmZSUBiwi2l46reeUdJZXMlFR",
+    "encryptKey": "",
+    "verificationToken": "",
+    "allowFrom": ["*"],
+    "reactEmoji": "THUMBSUP",
+    "groupPolicy": "mention",
+    "replyToMessage": false
+  }
 }
 ```
 
+配置完就能用了。
 
-配置完就可以nanobot愉快的对话啦！
+## 小结
 
-![](https://bytedance.larkoffice.com/space/api/box/stream/download/asynccode/?code=YmEzZmE5ZGE1MmEyNjViZWFhZjU3ZGQzNzI4NjhlMDBfd0o5OHNEUDVzMkd5YTROQ1hJUFJnYUczd1RMTTYyMHRfVG9rZW46REtRRmIzcmZ3b0U0Vnl4T0QwUmNRV0RzbnFoXzE3NzU3MDYwMDQ6MTc3NTcwOTYwNF9WNA)
-
-# 总结
-
-Agent的核心在于围绕LLM构建了
+通读下来 nanobot 的可学习价值不在某个单点，而在**抽象的克制**。同样一套 ReAct + Memory + Skill + Channel 的组合，它用最少的类和接口把 OpenClaw 的核心能力拼齐。值得抄走的几个细节：error response 不进历史、runtime context 合并到 user 消息、consolidate 失败降级为 raw archive、skill 走两层加载。这些都是在生产 agent 上踩过坑之后才会加的小补丁，也是评估一个 agent 框架是否真正被用过的判据。
