@@ -1,0 +1,9 @@
+{
+  "codeAgent": "trae",
+  "presetVersion": "1.0.0",
+  "techType": "empty",
+  "updatedAt": "2026-04-30T07:29:32.321Z",
+  "plugins": [
+    "@mc/knowledge"
+  ]
+}

@@ -5,3 +5,23 @@ public
 .quartz-cache
 private/
 .vscode/
+
+# motor-code ignored files
+.traecli
+.coco/commands/mc*
+**/.traecli
+**/.coco/commands/mc*
+.motor-code/**/(rules|skills|commands)
+.motor-code/**/(rules|skills|commands)/**
+**/.motor-code/**/(rules|skills|commands)
+**/.motor-code/**/(rules|skills|commands)/**
+!.motor-code/plugins/**/mc.plugin.json
+!.motor-code/plugins/**/.mcp.json
+!**/.motor-code/plugins/**/mc.plugin.json
+!**/.motor-code/plugins/**/.mcp.json
+!.motor-code/plugins/@mc/knowledge
+!.motor-code/plugins/@mc/knowledge/**
+!**/.motor-code/plugins/@mc/knowledge
+!**/.motor-code/plugins/@mc/knowledge/**
+.motor-code/temp
+**/.motor-code/temp

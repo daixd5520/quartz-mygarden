@@ -1,0 +1,10 @@
+{
+  "plugin": "@mc/knowledge",
+  "version": "69caeacf8071605796670a1a414a2197",
+  "description": "懂车帝知识库插件",
+  "supports": [
+    "coco",
+    "trae"
+  ],
+  "externals": []
+}

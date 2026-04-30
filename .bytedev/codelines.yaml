@@ -1,0 +1,18 @@
+IgnoreRules:
+  FilePathPattern:
+    - (^|/)auto-api/.*
+    - ^infra/pnpm-lock\.yaml$
+    - .*\.motor-code.*
+    - .*\.trae.*
+    - .*\.coco.*
+    - .*\.agents.*
+    - .*\.eden-mono.*
+    - .*\.openspec.*
+    - .*\.temp.*
+    - .*\.gulux.*
+    - .*\.npm.*
+    - .*openspec.*
+    - .*specs.*
+    - .*\.claude.*
+    - .*\.codex.*
+    - .*\.opencode.*
