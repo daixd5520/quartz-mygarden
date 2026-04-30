@@ -56,7 +56,7 @@ def query_cost(department, dimension):
 
 这个过程里我意识到一件事：Skill 天然是测试驱动的。先准备 case，让真正会部署的那个 Agent 去跑，观察它在哪些 case 上表现不好——是参数传错、说明文档不清晰，还是脚本返回的信息不够。然后针对性地改，再跑一轮。比自己拍脑袋想 Skill 该长什么样高效得多，因为**模型的实际使用行为才是最真实的反馈**。
 
-推荐平台：[AI PaaS Skill](https://cloud.bytedance.net/ai/skill?x-resource-account=public&x-bc-region-id=bytedance)，可以直接调试。
+推荐平台：[AI PaaS Skill]，可以直接调试。
 
 ## 四、参数不全，让模型去问人
 

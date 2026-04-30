@@ -7,11 +7,9 @@ tags:
 
 # Agent 的工作原理
 
-要理解 "AI 友好"，首先要理解 AI Coding Agent（Claude Code、Cursor、Copilot 等）到底是怎么工作的。它的工作循环是这样的：
+要理解"AI 友好"到底在说什么，得先明白 AI Coding Agent（Claude Code、Cursor、Copilot 等）到底在怎么工作。它的工作循环大致是：搜索代码库 → 读取文件 → 理解上下文 → 生成代码 → 验证结果 → 循环。
 
-暂时无法在飞书文档外展示此内容
-
-对于 AI 而言，每一步行为都会到资源，注意力空间等方面的约束：
+每一步都有资源和注意力层面的硬约束：
 
 |步骤|约束|卡点|
 |---|---|---|
@@ -21,35 +19,23 @@ tags:
 |生成代码|依赖已理解的上下文|**理解不够导致生成的代码有错**|
 |验证|需要能跑测试 / 编译|**需要可执行的反馈回路**|
 
-所谓 "AI 友好"，就是 AI 能**更加简单、清晰地理解仓库内容、更轻量、准确地执行需求任务**，比如在上述每一步都尽可能减少调用、减少注意力占用等方式，最终提高 AI 的工作准确率。
+所谓"AI 友好"，说到底就是让 AI 能**更简单、清晰地理解仓库内容，更轻量、准确地执行任务**——在上面每一步都尽量减少调用、减少注意力占用，最终把准确率推上去。
 
-1. **AGENTS.md**
+业界已经出现了一批标准和协议尝试回答这个问题，下面是几个绕不开的：
 
-> https://agents.md/
+**AGENTS.md**（https://agents.md/）
 
 OpenAI Codex 团队发起，2025.12 捐赠给 Linux Foundation 的 Agentic AI Foundation (AAIF)。标准 Markdown 格式，告诉 AI Agent 项目的构建命令、测试指令、代码风格、安全注意事项。超过 6 万个开源项目已采用，Codex / Cursor / Copilot / Gemini CLI 等 20+ 工具原生支持。
 
----
+**llms.txt**（https://llmstxt.org/）
 
-2. **llms.txt**
+Jeremy Howard（fast.ai）2024 年 9 月提出，最初主要面向网站，放在根路径 /llms.txt，用来存放给 AI 读取的仓库目录、文档索引等内容，让 AI 快速理解项目全貌。Anthropic、Zapier 等 2000+ 网站已实现，Docusaurus / VitePress 有官方插件支持。
 
-> https://llmstxt.org/
+**MCP**（https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation）
 
-Jeremy Howard（fast.ai）2024 年 9 月提出，最初主要是网站使用，放在根路径 /llms.txt，用来存在给 AI 读取的仓库目录、文档索引等内容，让 AI 快速理解项目全貌。Anthropic、Zapier 等 2000+ 网站已实现，Docusaurus / VitePress 有官方插件支持。
+Anthropic 2024.11 开源，2025.12 捐赠给 AAIF，Google、Microsoft、AWS、OpenAI 联合支持。JSON-RPC 2.0 协议，让 AI Agent 通过标准接口访问数据库、API、文件系统等外部工具。解决"每个 AI 工具都要写自定义集成"的问题。
 
----
-
-3. **MCP**
-
-> https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation
-
-Anthropic 2024.11 开源，2025.12 捐赠给 AAIF，Google、Microsoft、AWS、OpenAI 联合支持4。JSON-RPC 2.0 协议，让 AI Agent 通过标准接口访问数据库、API、文件系统等外部工具。解决 "每个 AI 工具都要写自定义集成" 的问题。
-
----
-
-4. **Google 16-Factor App**
-
-> https://cloud.google.com/transform/from-the-twelve-to-sixteen-factor-app
+**Google 16-Factor App**（https://cloud.google.com/transform/from-the-twelve-to-sixteen-factor-app）
 
 Google Cloud 2025.10 发布，在经典 [12-Factor](https://12factor.net/) 基础上新增 4 个 AI 因子：
 
@@ -58,31 +44,23 @@ Google Cloud 2025.10 发布，在经典 [12-Factor](https://12factor.net/) 基�
 3. Observability for Non-determinism：为非确定性输出建立可观测体系
 4. Trust & Safety by Design：安全信任从设计阶段内建
 
----
+**SDD——Spec-Driven Development**（https://github.blog/ai-and-ml/generative-ai/spec-driven-development-with-ai-get-started-with-a-new-open-source-toolkit/）
 
-5. **SDD**（GitHub Spec Kit、以 Spec 为中心的开发范式）
+GitHub 的 Spec-Driven Development 工具链，四阶段工作流：Constitution → Specify → Plan → Tasks → Implement。核心理念：Spec 越清晰结构化，AI 生成的代码质量越高。三层级：Spec-First（先写 Spec）→ Spec-Anchored（Spec 锚定实现）→ Spec-as-Source（Spec 即源码）。
 
-> https://github.blog/ai-and-ml/generative-ai/spec-driven-development-with-ai-get-started-with-a-new-open-source-toolkit/
+**DORA AI Capabilities Model**（https://dora.dev/ai/）
 
-GitHub 推出的 Spec-Driven Development 工具链，四阶段工作流：Constitution → Specify → Plan → Tasks → Implement。核心理念：Spec 越清晰结构化，AI 生成的代码质量越高。三个层级 ——Spec-First（先写 Spec）→ Spec-Anchored（Spec 锚定实现）→ Spec-as-Source（Spec 即源码）。
-
----
-
-6. **DORA AI Capabilities Model**（组织级 AI 成熟度）
-
-> https://dora.dev/ai/
 ![[Tech--AI 友好仓库-1.png]]
-Google DORA 团队 2025 年发布，定义了 7 项 AI 基础能力（健康数据生态、明确 AI 策略、以用户为中心等）。关键发现：90% 组织已使用 AI，但成功更依赖文化与能力而非工具本身。将 AI 友好度从代码仓库扩展到组织级别。
+
+Google DORA 团队 2025 年发布，定义了 7 项 AI 基础能力（健康数据生态、明确 AI 策略、以用户为中心等）。关键发现：90% 组织已在用 AI，但成功更依赖文化与能力而非工具本身。把 AI 友好度的讨论从代码仓库扩展到了组织层级。
 
 # AI 友好三层架构
 
 ## 第一层：注解型架构
 
-> 注解型架构为 AI Agent 提供了清晰的“操作手册”和行动框架，使其能够理解系统意图、调用工具并执行复杂任务
+注解型架构的核心是把人类的设计意图、约束和领域知识以结构化方式落进代码仓库，让 AI Agent 可以像新来的工程师一样快速接入项目、理解上下文，从而高效、可控地参与开发。
 
-注解型架构的核心思想是把人类的设计意图、约束和知识以结构化的方式存在代码仓库中，让 AI Agent 能像人类工程师一样理解项目上下文，从而高效、可控地参与开发。
-
-1. ### 入口文件和仓库说明书：Agent 的骨架
+### 入口文件和仓库说明书：Agent 的骨架
 
 入口文件是整个仓库给 AI 的“第一印象”，通常是根目录下的一个约定文件（如 `AGENTS.md`、`CLAUDE.md`等），AI Agent 首次进入项目时会自动加载这个文件，获取全局上下文。
 
@@ -112,11 +90,9 @@ wrapper/
 |**单一入口构建知识网络**|放在根目录作为全局规则，子目录局部覆盖|
 |**约束优先于自由**|优先收紧约束，可靠性为先|
 
-### 知识库：业务需求核心解决方案
+### 知识库：业务需求的核心解决方案
 
-> AI Agent 在通用编程任务上已接近人类水平。但工程团队在实际使用中普遍遇到同一个问题：AI 生成的代码语法正确、逻辑合理、但是完全不符合业务逻辑和需求
-
-因为知识内容不在模型训练数据中，也不在仓库代码里，以头条为例，大多服务项目历史悠久，大多数的知识以 **口口相传、散落在大小文档** 方式维护和传播。因此 Agent 几乎无法回答以下问题：
+AI Agent 在通用编程任务上已经接近人类水平，但工程团队在实际使用时普遍踩到同一个坑：**AI 生成的代码语法正确、逻辑合理、但完全不符合业务需求**。原因不复杂——业务知识不在模型训练数据里，也不在仓库代码里。以头条为例，大多数服务历史悠久，业务知识以**口口相传、散落在大小飞书文档**的方式维护，Agent 几乎无法回答：
 
 - 发文服务的链路是怎样的？
 - 短剧的元数据有哪些？
@@ -142,9 +118,9 @@ wrapper/
 |多业务同结构|仓库若设计多业务，多个业务间的结构保持统一和规范|
 |知识跨域|若存在多仓复用，可以考虑将知识库存放在团队的统一大仓|
 
-3. ### SKILLS：Agent 的 SOP
+### SKILLS：Agent 的 SOP
 
-SKILLS 是面向 AI Agent 的可复用工作流定义，比 prompt 更结构化、比插件更轻量的能力封装方式。它告诉 Agent：在什么场景下、按什么流程、用什么标准来完成一类特定任务。
+SKILLS 是面向 AI Agent 的可复用工作流定义——比 prompt 更结构化、比插件更轻量的能力封装。它告诉 Agent：**在什么场景下、按什么流程、用什么标准来完成一类特定任务。**
 
 OpenAI 团队在分享了他们用 Skills 维护 Agents SDK 的数据：使用 Skills 后，两个仓库在 3 个月内（2025.12 - 2026.02）合并了 457 个 MR，而此前 3 个月（2025.09 - 2025.11）为 316 个 MR，增长 44.6%，主要是将验证、发布准备、示例集成测试和 CR 等重复性的工程工作封装成 SKILLS。
 
@@ -535,9 +511,9 @@ SDD 即 Spec-Driven Development（规范驱动开发），在 Coding 前优先�
 |**确定性**|字段类型、错误码、约束都是明确的|返回适当的错误信息|
 |**可机器解析**|使用 Markdown 表格、代码块等结构化格式|纯自然语言描述表结构|
 
-当然对于 Spec 套件的引入会带来一定额外的维护成本：除了 review AI 生成的代码，还需要 review 其生成的 预案、任务 等 markdown 文件，因此需求是否需要使用 Spec 还需要有所考量：比如小需求、小bug修复这些内容引入 Spec 容易适得其反。
+引入 Spec 套件会带来额外维护成本：除了 review AI 生成的代码，还要 review 它产出的预案、任务等 markdown 文件。所以**是不是每个需求都适合上 Spec 要区分场景**——小需求、小 bug 修复硬上 Spec 反而适得其反。
 
-SDD 的本质是一个范式转移：
+SDD 本质上是一次范式转移：
 
 > 当 AI 让写代码变得廉价时，设计和规格说明才是真正有价值的人类工作。SDD 把这个流程规范化了。
 
@@ -606,16 +582,14 @@ Anthropic 实验形成的一套 Harness 最佳实践：**Harness 的本质是为
 
 ## 第二层：代码级架构
 
-> 代码级架构关注代码本身的可读性与可维护性，旨在降低 AI Agent 理解和修改代码认知成本。
-
-当前 LLM 编码助手的核心约束是 **上下文窗口有限 + 缺乏运行时状态感知**。架构层面的 AI 友好本质上是在解决两个问题：
+代码级架构关注代码本身的可读性和可维护性，目标是**把 AI Agent 理解、修改代码的认知成本降到最低**。当前 LLM 编码助手的硬约束是"上下文窗口有限 + 缺乏运行时状态感知"，架构层面的 AI 友好本质上在解决两件事：
 
 1. 减少 AI 任务需要的上下文
 2. 增加 AI 产出的确定性
 
 ### 垂直切片：Agent 眼中的轻量化仓库
 
-传统的设计模式下仓库可能为 handler -> service -> loader -> xxx 等形式，每层明确职责。
+传统设计模式下，仓库通常是 handler → service → loader → dal 这种分层结构，每层职责明确。
 
 但 AI 的认知模型完全不同：
 
@@ -647,15 +621,11 @@ Anthropic 的 Claude Code [最佳实践文档](http://code.claude.com/docs/en/be
 
 **核心原则：**拆分的粒度应该是AI 完成一次修改需要读的最小文件集，过细会导致大量文件跳转，过大则是单文件挤满上下文。
 
-### 架构统一：有限视角推测全局
+### 架构统一：从有限视角推测全局
 
-> 让 AI 通过内容搜索而非语义理解来工作。仓库内所有架构统一，AI 看过一个就能正确推断所有内容大体链路
+Anthropic 在最佳实践里明确说过一句话：**Reference existing patterns. Point Claude to patterns in your codebase.** 让 Agent 先看一个典型示例，再照着这个模式实现新功能，前提是仓库里的实际代码本身风格一致、架构一致。
 
-Anthropic 在最佳实践中明确了这个操作：Reference existing patterns. Point Claude to patterns in your codebase.
-
-让 Agent 先看一个典型示例，然后照着这个模式实现新功能，而这个的前提是仓库的实际代码是有一致的写法风格、架构。
-
-架构统一不是说所有代码写成一种样子，而是说 同类问题用同一种模式解决，使得 Agent 可以通过 模式匹配高效推理：**结构统一、思路统一**
+架构统一不等于所有代码长一个样，而是**同类问题用同一种模式解决**，使 Agent 能通过模式匹配高效推理。落到实处就两点——**结构统一、思路统一**。
 
 - **结构统一：统一的写法风格、目录规范、函数和文件的命名规范等**
 
@@ -710,9 +680,9 @@ func MGetItemCounter(ctx context.Context, itemIDs []int64) *requtil.Fetcher[int6
 }
 ```
 
-### Monorepo：跨场景任务
+### Monorepo：应对跨场景任务
 
-> Propel 的[研究](https://www.propelcode.ai/blog/structuring-codebases-for-ai-tools-2025-guide)指出：现代 AI 模型的 128K-1M token 上下文窗口有利于 monorepo，因为 AI 可以在单一上下文追踪原本微服务间的数据流转
+Propel 的[研究](https://www.propelcode.ai/blog/structuring-codebases-for-ai-tools-2025-guide)指出：现代 AI 模型 128K-1M 的上下文窗口其实是利好 monorepo 的——AI 可以在单一上下文里追踪原本需要跨微服务的数据流转。
 
 对于传统的需求，基本上无法实现一个仓库完成全部需求工作，而对于 Agent 而言，跨多仓库的任务会存在以下问题：
 
@@ -751,17 +721,15 @@ linters-settings:
 
 ## 第三层：测试类架构
 
-> 测试类架构为 AI 的代码生成与修改提供了关键质量保障，确保其产出的可靠性，同时为 Agent 任务过程提供回调自检
+测试类架构为 AI 的代码生成和修改提供质量保障，也为 Agent 在执行过程中提供回调自检的能力。
 
-Agent 一分钟生成了 500 行代码，但是需要 20 分钟 review
+> Agent 一分钟生成了 500 行代码，但人工 review 要花 20 分钟。
 
-当 Agent 能快速生成大量代码的时候，人工 review 已经成了最大效率卡点。Veracode 在 2025 年进行的研究：80 项编码任务，使用100 多个 LLM，最终有 45% 的代码生成任务引入了安全漏洞。
+当 Agent 能快速产出大量代码时，人工 review 本身就成了最大瓶颈。Veracode 2025 年的研究跑了 80 项编码任务、使用 100 多个 LLM，结果有 **45% 的代码生成任务引入了安全漏洞**。
 
-1. ### 质检机制：通过自动化质检解放人力
+### 质检机制：用自动化质检解放人力
 
-传统的质检手段已经无法满足如今膨胀的 Agent 代码生成速度，需要有前置的自动化手段帮助分担 review 压力
-
-业内目前的卡点手段：
+传统质检已经跟不上 Agent 的代码生成速度，必须把自动化检查前置，分担 review 压力。业内目前在用的各类质检卡点：
 
 |流程|质检卡点|
 |---|---|
@@ -783,9 +751,9 @@ Agent 一分钟生成了 500 行代码，但是需要 20 分钟 review
 
 面向打包这类频繁变更的场景，Bazel 接入后 flaky test （大概率也是 AI 生成），可以在自动化质检中标记，所有质检都为业务服务
 
-2. ### **测试左移**：把测试从上线前提前到开发中
+### 测试左移：把测试从上线前提前到开发中
 
-测试左移不是简单地早点写测试，而是用更强的测试形式对抗更快的代码生成速度。
+测试左移不是简单地"早点写测试"，而是**用更强的测试形式对抗更快的代码生成速度**。
 
 - **TDD：**
 
@@ -813,9 +781,7 @@ AI 时代的 TDD 即让 AI 先写测试，再写实现，也可在 AGENTS.md/ �
 
 - **PBT（Property-Based Testing）：**
 
-> 传统测试是写几个 case 覆盖已知场景，但 AI 生成代码的问题恰恰在未知场景：AI 可以让所有你写的 test case 通过，但在无法覆盖的场景上的异常则难以捕获。
-
-PBT 的核心：基于属性的测试，无需关注逻辑输入 A 输出 B，而是对于所有可能输入，属性必须成立。 属性可以简单理解为一系列输入和行为
+传统测试是写几个 case 覆盖已知场景，但 AI 生成代码的问题恰恰在未知场景：AI 可以让所有你写的 test case 通过，但对未覆盖的场景里的异常则难以捕获。PBT 换一个角度——**不关心"输入 A 得到输出 B"，而是关心"对任意合法输入，某个属性必须成立"**。属性可以理解为一组输入与行为上的不变量。
 
 Kiro 在 Agent 工作流中将 [PBT](https://kiro.dev/blog/property-based-testing/)（Property-Based Testing） 融合到了 Spec（使用 [Hypothesis](https://hypothesis.readthedocs.io/en/latest/)）：
 

@@ -84,6 +84,15 @@ YaRN 的定义就是：**NTK-by-parts 插值 + attention scaling** 的组合。[
 
 ### Qwen3-30B-A3B的实际参数配置
 
+从 HuggingFace 导出的每层参数 shape 读下来，几个关键结论：
+
+- **GQA**：$d_\text{model}=2048$，`q_proj` 输出 4096，`k_proj`/`v_proj` 各 512，即 32 个 q-head（每 head 128 维）共享 4 组 K/V（每组 8 head 一组）——标准的 group=4 GQA。
+- **QK-Norm**：`q_norm`/`k_norm` 都是 `(128,)`，按 head-dim 做 norm，是 Qwen3 相对 Qwen2 加的训练稳定性 trick。
+- **MoE 结构**：每层 128 个 routed expert（`mlp.gate.weight` shape 是 `(128, 2048)`），每个 expert 是 gate/up/down 三件套的 SwiGLU，中间维 768。没有 shared expert，是纯 routed MoE。
+- **整体规模**：48 层 × 128 expert × 3 矩阵 × 768×2048，activated 参数约 3B（A3B 里的 3B），总参数 30B 左右。
+
+完整 dump（48 层第 1 层的所有参数 shape）：
+
 ```Python fold
 ==== Qwen3-30B-A3B Parameter Shapes 第1/48层====
 model.embed_tokens.weight                                    | (151936, 2048)
@@ -500,7 +509,13 @@ Shared experts相比于纯稀疏MOE网络来说会更加的稳定，但是带来
 
 ## GLM-4.5-Air
 
-前两层结构
+看 GLM-4.5-Air 的前两层结构就能把几个关键设计点对出来：
+
+- **前 dense 后 sparse**：第 0 层走稠密 MLP（`gate_proj/up_proj/down_proj` 直接挂在 `mlp` 下），第 1 层才切到 MoE（挂在 `mlp.experts.0..127` 下）。GLM 系列常见的选择——前几层稠密、后面稀疏。
+- **hybrid MoE（带 shared expert）**：MoE 层除了 128 个 routed expert，还额外挂一个 `mlp.shared_experts`（gate/up/down 三件套，中间维同为 1408）。相比纯 routed MoE（如 Qwen3），shared expert 更稳定，代价是固定开销和潜在的 expert 参数浪费。
+- **带 bias**：所有 `q_proj/k_proj/v_proj` 都有 `.bias`，和 Qwen3/DeepSeek 的 no-bias 路线不同。
+
+完整 dump：
 
 ```YAML fold
 ==== Parameter Shapes ====
