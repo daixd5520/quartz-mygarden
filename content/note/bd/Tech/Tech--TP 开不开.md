@@ -1,14 +1,14 @@
 ---
 tags:
-  - landing
   - inference
   - 推理优化
-draft: "true"
 ---
 
-![[关于 tp 开不开-1.png]]
+# TP 开不开——一个和直觉相反的观察
 
-一个和直觉反的发现：A100 + SGLang 部署 1.7B 和 4B 模型，QPS=1 的时候，tp=2 比 tp=1 更快。按过去的经验——只要一张卡塞得下，tp=1 一定比 tp>1 快，因为省了 all-reduce——这结论是反的。问 GPT 加上自己翻 profile，能拼出一个比较干净的解释：**瓶颈没到通信上，而在单卡算力/带宽利用率；tp=2 恰好把模型从 memory-bound 的低效区推到更均衡的工作点上**。下面把机制拆开写。
+A100 + SGLang 部署 1.7B 和 4B 模型，QPS=1 的时候，tp=2 比 tp=1 更快。按过去的经验——只要一张卡塞得下，tp=1 一定比 tp>1 快，因为省了 all-reduce——这结论是反的。问 GPT 加上自己翻 profile，能拼出一个比较干净的解释：**瓶颈没到通信上，而在单卡算力/带宽利用率；tp=2 恰好把模型从 memory-bound 的低效区推到更均衡的工作点上**。下面把机制拆开写。
+
+![[关于 tp 开不开-1.png]]
 
 ## 负载抽象：decode 阶段是"小 batch、低并行度"的重复小算子
 
@@ -68,8 +68,8 @@ Nsight Systems / DCGM 里盯四个指标：
 
 tp=1 大概率是 DRAM 很高、SM 不满；tp=2 会看到 DRAM 降、SM 升、NVLink 有占用但不是瓶颈。这一组指标对上了，就可以相信"带宽分摊 + Tensor Core friendly + overlap"这个解释。
 
-## 一句话收束
+## 小结
 
 tp 开不开不是"通信是否昂贵"的问题，而是"你当前的负载处在哪条瓶颈曲线上"。decode 阶段、小 batch 这一档，tp=2 是在用一点通信换一大段 HBM 带宽和 SM 利用率；把 batch 拉起来或者换更大的模型，结论会立刻反转。
 
-还能再往下挖的一个问题是：**为什么 decode 阶段几乎永远是 memory-bound，而 prefill 更偏 compute-bound？** 这个留到下一篇。
+顺着这条思路往下挖，还有一个值得单写的问题：**为什么 decode 阶段几乎永远是 memory-bound，而 prefill 更偏 compute-bound？** 留到下一篇。

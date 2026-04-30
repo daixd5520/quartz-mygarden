@@ -2,10 +2,16 @@
 tags:
   - landing
   - prompt
+  - GRPO
+title: 500 human eval 的 plan prompt 长度统计
 draft: "true"
 ---
 
-`FinalPlan500` 这份 500 条 human eval 集对应的 plan prompt，跑了一次 token 长度统计（`count_plan_prompt_tokens.py`）。结论：这份数据集下 plan prompt 平均接近 8k token，最长到 10k，这是在做 GRPO / judge 链路预算和 context 切分时必须记住的数字。
+# 500 human eval 的 plan prompt 长度统计
+
+`FinalPlan500` 这份 500 条 human eval 集对应的 plan prompt，跑了一次 token 长度统计（`count_plan_prompt_tokens.py`）。一句话结论：**这份数据集下 plan prompt 平均接近 8k token，最长 10k**——这是做 GRPO `--max_length` 预算、judge 链路切分时必须记住的数字。
+
+## 分布
 
 ```
 File: /cloudide/workspace/motor_dynamic_summary/old_csvs/bigprompts/FinalPlan500_with_plan_prompt-1.csv
@@ -33,8 +39,10 @@ Top 10（按 token 数）：
 | 230 | 9080  | 价格 10 万以下，轿车，汽油，马力大，推荐一些热门车型 |
 | 132 | 9073  | 瑞虎 9 与 RAV4 如何选 |
 
-几个观察：
+## 几个工程上用得到的观察
 
-1. 分布很紧（median 7.9k、min 6.9k），prompt 本身模板大、schema 全量灌进去，query 长短对总长度影响不大。所以 plan 阶段选 8k 上下文是做不了的，至少要 12k 才够留输出空间。
-2. `--max_completion_length` 再留 512 ~ 1024 比较保险，对应的 GRPO `--max_length` 设 12288 以上。
-3. Top 10 里有 "凌际星云对比雅升 VITO"、"瑞虎 9 与 RAV4 如何选" 这类对比型 query，prompt 不比长 query 短，因为 schema 侧是一样的——长度瓶颈在 schema，不在用户输入。
+分布很紧：median 7.9k，min 6.9k。prompt 模板大、schema 全量灌进去，query 长短对总长度影响几乎可以忽略。所以 plan 阶段上下文窗口 8k 做不了，至少 12k 才够留出输出空间。
+
+`--max_completion_length` 留 512–1024 比较保险，对应的 GRPO `--max_length` 建议 12288 以上。
+
+Top 10 里出现了 `凌际星云对比雅升 VITO`、`瑞虎 9 与 RAV4 如何选` 这类短 query 对比题，它们的 prompt 并不比长 query 短——**长度瓶颈在 schema，不在用户输入**。这意味着优化上下文的首选动作是裁 schema（分场景发放、惰性加载），而不是卷 query 压缩。

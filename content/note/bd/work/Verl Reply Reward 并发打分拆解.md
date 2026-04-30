@@ -3,17 +3,20 @@ tags:
   - landing
   - RL
   - verl
+title: Verl Reply Reward 并发打分拆解
 draft: "true"
 ---
 
-这里存的是 verl reward plugin 里 reply 部分的打分代码，学习/魔改用。原文里混了很多注释掉的旧版 `compute_score`，留着看思路没问题，但太干扰阅读，这里只保留当前线上跑的 `compute_score_parallel` 和它的尾巴 `__main__`。
+# Verl Reply Reward 并发打分拆解
+
+记录 verl reward plugin 里 reply 部分 `compute_score_parallel` 的当前实现——四路 judge 并发打分 + 一条 rule 规则兜底的融合设计，以及线上跑过一阵之后几个值得留意的坑。
 
 ## 入口与设计
 
 - 文件路径：`verl/utils/reward_score/plugins/reply/reply_eval.py`
-- 四个子打分器：`reply_cards_eval` / `reply_acc`（当 RAG 遵循性）/ `reply_useful` / `reply_instruct`。另有一个 `reply_auto` 的老版本，和上面三合一重叠，已经注释掉。
-- 并发策略：`ThreadPoolExecutor(max_workers=10)`，四路打分并发触发，每路都通过 `compute_score_call` 包一层超时+重试+兜底默认值，单个子分器挂了不会阻塞整体。
-- 最终 `score` 按等权融合四路分 + 一路 rule 分（banned_str 命中置 0）；任一子分归零则总分直接置 0，避免"其他维度高分拉平硬伤"。
+- 四个子打分器：`reply_cards_eval` / `reply_acc`（作为 RAG 遵循性）/ `reply_useful` / `reply_instruct`。另有一个 `reply_auto` 的老版本已注释掉，功能和上面三个三合一重叠。
+- 并发策略：`ThreadPoolExecutor(max_workers=10)`，四路打分同时发，每路都套一层 `compute_score_call` 做超时 + 重试 + 默认值兜底，单个子分器挂了不会阻塞整体。
+- 融合规则：四路 judge 分 + 一路 rule 分（banned_str 命中置 0），等权加权平均。**任一子分为 0 则总分直接置 0**，避免其他维度高分把硬伤拉平。
 
 ## 代码
 
@@ -147,7 +150,10 @@ if __name__ == "__main__":
 
 ## 几个会踩坑的点
 
-1. `compute_score_call` 用 `threading.Thread` + `t.join(timeout)` 实现超时：Python 线程是没法真正 kill 的，超时后 daemon 线程还在后台跑，高并发下可能积累僵尸线程；短期可以接受，长期建议换成 `multiprocessing.Process` + `terminate()` 或者 subprocess 隔离。
-2. 默认兜底值是 `0.5`，对 GRPO 这种"相对优势"训练来说是中性的；别改成 `1.0`，否则 judge 挂了会被当成高质量样本奖励。
-3. `banned_str` 里的 `"^未知"` / `"_未知"` 是字面匹配，不是正则，注意别当成 regex 维护。
-4. `if zero_sub_score: return_d['score'] = 0.0` 这条短路规则非常关键——它让四路判分里任何一个硬性违规能一票否决，和常见的"加权平均"思路明确区分。
+`compute_score_call` 用 `threading.Thread` + `t.join(timeout)` 实现超时。Python 线程没法真正 kill，超时后 daemon 线程还在后台跑，高并发下会积累僵尸线程。短期可以接受，长期建议换成 `multiprocessing.Process` + `terminate()` 或者 subprocess 隔离。
+
+默认兜底值是 `0.5`。对 GRPO 这种看"相对优势"的训练来说，0.5 是中性的，不会意外推高 advantage；**不要改成 1.0**，否则 judge 一挂，样本就被当高质量奖励掉，训练信号会悄悄变坏。
+
+`banned_str` 里的 `"^未知"` / `"_未知"` 是**字面匹配**，不是正则，维护时别当成 regex 改。
+
+`if zero_sub_score: return_d['score'] = 0.0` 这条短路规则是整个设计的点睛——它让四路判分中任意一个硬性违规都能一票否决，和常见的纯加权平均明确区分开。reply 场景里，"卡片信息引用错"这种错误没法靠别的维度"高分补偿"，必须有硬否决；如果只用加权平均，RL 会很快学会在其他三路刷高分掩盖硬伤。
