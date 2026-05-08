@@ -34,4 +34,30 @@
 - 注意力层：`MLA` → **CSA（Compressed Sparse Attention）+ HCA（Heavily Compressed Attention）混合注意力**
 	- 交错分布（除了前两层连续HCA），CSA **压缩率设置为 4** 并且使用 Lightning Indexer 做top-K 稀疏KV 选择。HCA设置**压缩率128**、不做KV稀疏直接DenseMQA。这是DSV4实现1M上下文下，低FLOPs/KV cache的<font color="#f79646">核心技术</font>。
 - 优化器：`AdamW` → **Muon**（仅部分模块仍用 AdamW）
+	- 使用Muon 10步 hybrid Newton-Schulz **正交化**降低优化器开销，<font color="#f79646">Embedding/Head /mHC static bias / RMSNorm 维持 AdamW</font>。MoE expert **权重全程 FP4**，CSA indexer 的 QK 路径也FP4，其余部分保持**FP8**。
+- MoE 侧：Gate 激活从sigmoid改成 $sqrt(softplus(·))$ ，前3个MoE层用Hash routing（按token ID 决定专家）。
 ![[拆解 DeepSeekv4-1.png|433]]
+
+## CSA
+
+1. **第一步：序列维度压缩（压缩率 = 4）**
+
+    把**每 4 个连续 token 的 KV 对**，通过模型端到端训练学到的加权求和规则（不是简单平均，是带 **softmax 权重** + **位置偏置**的可学习融合，还做了**重叠压缩**避免硬切分的边界信息丢失），合并成 1 个压缩后的 KV entry。
+
+2. **第二步：Lightning Indexer 做 top-K 稀疏 KV 选择**
+
+    用一个极致轻量化的低秩多查询**索引器**（QK 路径全程跑 FP4，开销极低），在压缩后的 250K 个 KV entry 里，给当前 query 动态选出 top-K 个最相关的压缩块（V4-Pro 里固定 top-K=1024），**只有这部分被选中的 KV，会进入最终的注意力计算，剩下的全部跳过**。
+
+**设计目的**：用低倍率压缩保留足够的语义分辨率，再通过稀疏选择把注意力计算量砍到极致，既保证了长文本里关键细节的召回能力，又彻底避开了全量注意力的 O (n²) 成本。
+
+## HCA
+
+1. **第一步：极致序列压缩（压缩率 = 128）**
+
+    把**每 128 个连续 token 的 KV 对**，压缩成 1 个 KV entry，压缩力度是 CSA 的 32 倍。1M token 的原始序列，这一步直接被压缩到不到 7800 个 KV entry，序列长度降到原来的 1/128，KV Cache 体积也同步降到原始的 1/128。
+
+2. **第二步：不做稀疏选择，直接 DenseMQA 全量计算**
+
+    因为压缩后的序列已经足够短，哪怕做**全量的稠密**注意力计算，成本也极低。所以模型直接对这不到 7800 个 KV entry 做完整的 **MQA 注意力**计算，让当前 query 能和压缩后的全局所有 KV 做交互，拿到完整的长历史全局轮廓。
+
+**设计目的**：用极致压缩换全局视野，彻底解决 CSA 稀疏选择可能丢失的全局结构、弱相关上下文信息，给模型提供长文本的整体脉络；同时因为压缩率极高，哪怕做全量稠密计算，FLOPs 和显存开销也完全可控。
