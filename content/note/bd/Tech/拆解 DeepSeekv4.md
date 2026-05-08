@@ -32,7 +32,9 @@
 - 残差连接：`Residual` → **Manifold-Constrained Hyper-Connections (mHC)** 
 	- 把HC的残差矩阵 $B_l$ 约束到双重随机矩阵流形（Birkhoff polytope），相比原版 ResidualConnection、HC，解决了表达能力受限、数值不稳定的问题。
 - 注意力层：`MLA` → **CSA（Compressed Sparse Attention）+ HCA（Heavily Compressed Attention）混合注意力**
-	- 交错分布（除了前两层连续HCA），CSA **压缩率设置为 4** 并且使用 Lightning Indexer 做top-K 稀疏KV 选择。HCA设置**压缩率128**、不做KV稀疏直接DenseMQA。这是DSV4实现1M上下文下，低FLOPs/KV cache的<font color="#f79646">核心技术</font>。
+	- 交错分布（除了前两层连续HCA和最后一层压缩率为 0 的 MTP 退化成滑动窗口注意力），CSA **压缩率设置为 4** 并且使用 Lightning Indexer 做top-K 稀疏KV 选择。HCA设置**压缩率128**、不做KV稀疏直接DenseMQA。这是DSV4实现1M上下文下，低FLOPs/KV cache的<font color="#f79646">核心技术</font>。
+	- CSA = 注意力层内置的**细粒度实时 KV Cache RAG**，负责精准抓细节；
+	- HCA = 注意力层内置的**全局上下文摘要器**，负责把握整体脉络；
 - 优化器：`AdamW` → **Muon**（仅部分模块仍用 AdamW）
 	- 使用Muon 10步 hybrid Newton-Schulz **正交化**降低优化器开销，<font color="#f79646">Embedding/Head /mHC static bias / RMSNorm 维持 AdamW</font>。MoE expert **权重全程 FP4**，CSA indexer 的 QK 路径也FP4，其余部分保持**FP8**。
 - MoE 侧：Gate 激活从sigmoid改成 $sqrt(softplus(·))$ ，前3个MoE层用Hash routing（按token ID 决定专家）。
@@ -40,24 +42,37 @@
 
 ## CSA
 
-1. **第一步：序列维度压缩（压缩率 = 4）**
+1. **<font color="#f79646">第一步：序列维度压缩（压缩率 = 4）</font>**
 
-    把**每 4 个连续 token 的 KV 对**，通过模型端到端训练学到的加权求和规则（不是简单平均，是带 **softmax 权重** + **位置偏置**的可学习融合，还做了**重叠压缩**避免硬切分的边界信息丢失），合并成 1 个压缩后的 KV entry。
+    把**每 4 个连续 token 的 KV 对**，通过模型端到端训练学到的加权求和规则（不是简单平均，是带 **softmax 权重** + **位置偏置**的可学习融合，还做了**重叠压缩**避免硬切分的边界信息丢失--两个窗口重合一半），合并成 1 个压缩后的 KV entry。
 
-2. **第二步：Lightning Indexer 做 top-K 稀疏 KV 选择**
+2. **<font color="#f79646">第二步：Lightning Indexer 做 top-K 稀疏 KV 选择</font>**
 
     用一个极致轻量化的低秩多查询**索引器**（QK 路径全程跑 FP4，开销极低），在压缩后的 250K 个 KV entry 里，给当前 query 动态选出 top-K 个最相关的压缩块（V4-Pro 里固定 top-K=1024），**只有这部分被选中的 KV，会进入最终的注意力计算，剩下的全部跳过**。
 
-**设计目的**：用低倍率压缩保留足够的语义分辨率，再通过稀疏选择把注意力计算量砍到极致，既保证了长文本里关键细节的召回能力，又彻底避开了全量注意力的 O (n²) 成本。
+> **设计目的**：用低倍率压缩保留足够的语义分辨率，再通过稀疏选择把注意力计算量砍到极致，既保证了长文本里关键细节的召回能力，又彻底避开了全量注意力的 O (n²) 成本。
 
 ## HCA
 
-1. **第一步：极致序列压缩（压缩率 = 128）**
+1. **<font color="#f79646">第一步：极致序列压缩（压缩率 = 128）</font>**
 
     把**每 128 个连续 token 的 KV 对**，压缩成 1 个 KV entry，压缩力度是 CSA 的 32 倍。1M token 的原始序列，这一步直接被压缩到不到 7800 个 KV entry，序列长度降到原来的 1/128，KV Cache 体积也同步降到原始的 1/128。
 
-2. **第二步：不做稀疏选择，直接 DenseMQA 全量计算**
+2. **<font color="#f79646">第二步：不做稀疏选择，直接 DenseMQA 全量计算</font>**
 
     因为压缩后的序列已经足够短，哪怕做**全量的稠密**注意力计算，成本也极低。所以模型直接对这不到 7800 个 KV entry 做完整的 **MQA 注意力**计算，让当前 query 能和压缩后的全局所有 KV 做交互，拿到完整的长历史全局轮廓。
 
-**设计目的**：用极致压缩换全局视野，彻底解决 CSA 稀疏选择可能丢失的全局结构、弱相关上下文信息，给模型提供长文本的整体脉络；同时因为压缩率极高，哪怕做全量稠密计算，FLOPs 和显存开销也完全可控。
+> **设计目的**：用极致压缩换全局视野，彻底解决 CSA 稀疏选择可能丢失的全局结构、弱相关上下文信息，给模型提供长文本的整体脉络；同时因为压缩率极高，哪怕做全量稠密计算，FLOPs 和显存开销也完全可控。
+
+## 细节
+
+- 每个Head的Q、共享的KV都单独做RMSNorm防止Attn logits 爆炸
+- 只对最后 64 维做 RoPE，其余 448 维走 FP8/FP4 量化
+- attn sink：啥意思没看懂，给每个 head 的 softmax 分母加一个 exp(z\'_h)，让attn 可以选不对任何 token 施加注意力
+- 每层保留 n_win=128 个未压缩的 KV，和压缩 KV 拼起来做 attn；修复 CSA/HCA 的漏洞（query 只能选择与自己不属于一个压缩块的块，看不见自己的邻居）；其次让最近 tokne 相关性最强
+
+## mHC
+
+为了解决残差连接的表达能力受限以及 seesaw 效应。也为了解决 HC 的数值不稳定和系统开销大
+
+具体先省略
