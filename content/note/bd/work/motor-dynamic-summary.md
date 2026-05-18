@@ -179,6 +179,75 @@ SUM --> TOPK[TopK schema_select 拼接进 prompt]
 - Plan：字段召回覆盖率（select/where），where 约束正确率（可参考 plan_checker）
 - 线上可观测字段（建议写入 extra_info）：模型版本、prompt 版本、关键中间输出（plan xml、match pairs、topk 分数列表）。
 
+## 9. 面试怎么讲这套服务
+
+如果面试官让我概括 `motor_dynamic_summary`，我不会把它讲成一个“摘要服务”，而会讲成**选车问答里的算法能力中台**。它对上承接 `select_car_feature_server` 这类业务编排服务，对下封装内容云、摘要模型、相关性模型、reranker、向量库、Redis 和 LLM 网关，输出的不是单一能力，而是一组可复用的结构化算法接口：摘要、可回答性、字段检索、参配召回、ChunkRecall、KGRecall 和决策打分。
+
+再往下一层讲，这个服务解决的是“业务服务不应该自己拼模型能力”这个问题。业务方真正关心的是：给你一个 query 和一批候选内容，你能不能给我可排序的分数；给你一个选车 query，你能不能把相关 schema、参配字段和 prompt 片段准备好；给你一组车系和观点词，你能不能返回可直接用在回答里的优缺点依据。`motor_dynamic_summary` 把这些问题收敛成 RPC，不让上层服务直接碰一堆异构下游。
+
+我认为这套设计最值得讲的地方有三个。
+
+- 第一，它没有把问题粗暴地做成“一个大模型直接端到端生成”。摘要、相关性、重排、字段检索、参配召回被拆成多个可观测模块，代价是系统复杂一些，但收益是每个环节都能独立评估和替换。
+- 第二，它的很多打分不是单模型真理，而是**多信号融合**。最典型的是 `overall_score`，本质上是在回答“一个候选既要能答，也要和 query 真相关”。只看 `bge_ranker_score` 会把语义相近但答不上来的内容排太前，只看 `answer_score` 又容易把模板化可回答内容抬高，所以这里用了分段融合，而且对低 `answer_score` 做了抑制。
+- 第三，它把 Plan 也做成了检索问题。`schema_retrieve` 不是把所有字段一股脑塞进 prompt，而是先用 `answer_score + BM25` 做字段相关性召回，再把 TopK schema 塞给规划模型。这一步直接决定了 Plan 的上下文质量，很多后续 XML / params 错误其实都不是生成能力问题，而是字段候选池一开始就给偏了。
+
+如果面试官继续追问“你个人觉得最像算法贡献的点是什么”，我会重点讲两个。
+
+- 一个是 `schema_retrieve`。这里把 QA 可回答性信号和 BM25 字面信号融合起来，本质是在做字段级 schema linking，只不过不是经典 Text2SQL 那种表列检索，而是面向选车属性体系的中文字段召回。这个设计的好处是对主观描述和短 query 都更稳，`BM25` 保字面命中，`answer_score` 保语义可回答性。
+- 另一个是 `overall_score`。它不是 learned fusion，而是人工设计的分段函数，背后假设很明确：可回答性太差的候选，再高的 rerank 也不能被抬到太前。这个规则看起来“土”，但线上系统里往往比一个没校准好的 learned scorer 更稳，因为分布漂移时更容易解释和治理。
+
+从系统边界上看，它和 `select_car_feature_server` 的关系也很适合面试里主动讲清楚。前者更像业务主链路，负责 QueryAnalysis、候选车系召回、排序编排和协议返回；后者更像算法能力底座，负责 Plan、参配、内容理解、分数和 prompt 组件。把这层职责边界主动讲出来，面试官一般会直接知道你不是只会堆模型，而是在看系统怎么拆。
+
+## 10. 面试高频追问
+
+### Q1：`motor_dynamic_summary` 和上层业务服务为什么要拆开，不能全放在一个服务里？
+
+因为这里封装的是跨场景复用的算法原子能力，而不是某一个业务流程。摘要、相关性、rerank、参数召回、ChunkRecall、KGRecall 这些能力不只服务选车 dialog，也服务搜索、问答、图文内容理解。如果全塞在业务服务里，复用性差，模型和 prompt 升级也会把业务服务一起拖着发版。
+
+### Q2：`overall_score` 为什么不直接学一个融合模型，而要写分段规则？
+
+这里更像一个校准问题，不只是拟合问题。我们最担心的是低 `answer_score` 的候选被高 `bge_ranker_score` 误抬，所以先用规则把“不可回答”这件事压住。在线上真实系统里，这种可解释的 hard bias 往往比一个离线分高、线上一漂就失控的 learned fusion 更稳。后面当然可以做 learned weights，但前提是先把 label 和线上监控做扎实。
+
+### Q3：`answer_score = 1 - no_answer_score` 这个定义为什么合理？
+
+因为下游 SP 模型天然给的是“答不上来”的概率或倾向，而业务排序真正需要的是“这个候选能不能回答 query”。两者是单调可逆的，直接取 `1 - no_answer_score` 最简单，也便于和其他越大越好的分数融合。这里的重点不是数学形式，而是把“可回答性”显式做成一个独立维度。
+
+### Q4：为什么 `schema_retrieve` 里要把 BM25 和 answer score 融合，而不是只留 embedding 或只留 BM25？
+
+只留 BM25 会对中文短 query 和主观表达过敏，字面没命中就很容易漏；只留语义分又会把一些看起来像相关、但其实字段边界不对的 schema 捞上来。字段检索这件事本身就是“字面约束 + 语义约束”的混合问题，所以这里做两路融合是合理的。
+
+### Q5：这里为什么用 min-max normalize，而不是 softmax？
+
+因为这里不需要概率解释，只需要把两路信号放到可加的同尺度空间里。softmax 会引入相对放大效应，尤其候选池规模变化时更不稳定；min-max 更像一个排序前归一化，足够朴素，也更容易 debug。
+
+### Q6：为什么 ParamsRecall 要保留两套版本，传统版和 qwen 版同时存在？
+
+这不是代码没清理干净，而是线上系统典型的“双轨制”。传统版稳定、可控、成本低，适合兜底；qwen 版抽取能力强，更适合复杂 query 和 need_prompt 场景。保留双轨意味着新链路效果没完全证实前，业务不会被一次模型回归拖死。
+
+### Q7：`need_prompt=true` 这条链路的价值是什么？
+
+它说明这个服务不只输出“数据”，还输出可直接被上游生成模型消费的 prompt 组件，比如 `params_text`、`oneshot`、`control`、`prompt_parts`。这会让上游业务服务更轻，因为不用自己再拼一层 prompt 规则，同时也让 prompt 版本管理更集中。
+
+### Q8：ChunkRecall 里为什么还要让 LLM 做 `keyword ↔ query` 匹配，看起来很贵？
+
+因为向量召回出来的是 keyword 主题簇，不是最终 query-doc 对齐结果。这里加一层 LLM 匹配，本质是在做 query rewrite 后的语义过滤，能压掉不少主题簇误召。但这一步确实贵，所以文档里也明确说了可以往轻量 cross-encoder 或实体约束迁。
+
+### Q9：KGRecall 和 ChunkRecall 的职责边界怎么讲？
+
+ChunkRecall 处理的是非结构化内容片段，偏“文章/文档里怎么说”；KGRecall 处理的是观点和属性节点，偏“图谱里有哪些可归纳的优缺点与依据”。前者更适合开放文本召回，后者更适合结构化观点总结。两者都可能服务回答，但证据形态不同。
+
+### Q10：这套服务最容易漂移的指标是什么？
+
+我认为是 `answer_score`、`bge_ranker_score` 和 schema retrieval 的 TopK 命中分布。因为这几个点一旦漂，往往上层业务先表现为“回答越来越像、但不准”或者“Plan 结构没错但字段越来越偏”，排障成本很高。所以分桶监控和关键中间输出落盘非常重要。
+
+### Q11：如果线上 badcase 变多，你会先查哪里？
+
+我会按链路拆：先看 schema retrieval 的 TopK 是否偏了，再看 qwen plan 输出有没有字段幻觉，再看 ParamsRecall 是否 fallback 频繁，最后看 decision / rerank 分布是否异常。原因很简单，Plan 选错字段和召回拿错候选，后面的总结模型再强也救不回来。
+
+### Q12：这套服务如果要进一步演进，你会优先做什么？
+
+我会优先做三件事：第一，把分数融合从散落在 handler 的规则收拢成统一配置；第二，把 `schema_retrieve`、ChunkRecall、Decision 这三条链路的离线评测和线上监控打通；第三，逐步把 LLM-only 的昂贵步骤替换成更轻的检索或 cross-encoder。前两件事决定系统可治理，第三件事才是成本优化。
+
 ---
 
 # Motor Dynamic Summary：系统设计（人能看懂版）
