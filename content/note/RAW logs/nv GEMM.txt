@@ -1,0 +1,184 @@
+"""
+=============================================================================
+GEMM Complexity Analysis Problem
+=============================================================================
+
+Matrix multiplication (GEMM) is the most fundamental operation in deep learning
+inference. In this problem you will:
+
+  1. Implement a naive triple-loop GEMM
+  2. Implement a tiled (blocked) GEMM that improves cache behavior
+  3. Analyze the computational and memory-access complexity of both versions
+  4. Explain *why* tiling helps despite having the same arithmetic cost
+
+All implementations use plain NumPy — no GPU required.
+=============================================================================
+"""
+
+import numpy as np
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PART 1: NAIVE GEMM
+# ─────────────────────────────────────────────────────────────────────────────
+
+def gemm_naive(A: np.ndarray, B: np.ndarray) -> np.ndarray:
+    """
+    Compute C = A @ B using three explicit loops (no np.dot / np.matmul).
+
+    Args:
+        A: shape (M, K)
+        B: shape (K, N)
+
+    Returns:
+        C: shape (M, N)
+    """
+    # TODO: implement
+    
+    # M,N,K
+    M, K = A.shape
+    N = B.shape[1]
+    C = np.zeros((M, N), dtype=A.dtype)
+    
+    for i in range (M):
+        for j in range(N):
+            for k in range(K):
+                C[i][j] += A[i][k]*B[k][j]
+    
+    return C        
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PART 2: TILED GEMM
+# ─────────────────────────────────────────────────────────────────────────────
+
+def gemm_tiled(A: np.ndarray, B: np.ndarray, tile_size: int) -> np.ndarray:
+    """
+    Compute C = A @ B using a tiled (blocked) algorithm.
+
+    The idea: instead of iterating element-by-element, process the matrices
+    in (tile_size x tile_size) sub-blocks. For each output tile C[i,j],
+    accumulate partial products from corresponding tiles of A and B:
+
+        C_tile[i,j] += A_tile[i,z] @ B_tile[z,j]    for z in 0..K_tiles-1
+
+    You may use np.dot / @ for the *inner* tile-level multiply (size b x b).
+    The outer three loops over tile indices must be explicit.
+
+    Assume M, K, N are all divisible by tile_size.
+
+    Args:
+        A:         shape (M, K)
+        B:         shape (K, N)
+        tile_size: block dimension b
+
+    Returns:
+        C: shape (M, N)
+    """
+    # TODO: implement
+    
+    # M N K
+    M, K = A.shape
+    N = B.shape[1]
+    C = np.zeros((M, N), dtype=A.dtype)
+    
+    # 按tile
+    for i in range(M // tile_size):
+        for j in range(N // tile_size):
+            for k in range(K // tile_size):
+                A_tile = A[i*tile_size:(i+1)*tile_size, k*tile_size:(k+1)*tile_size]
+                B_tile = B[k*tile_size:(k+1)*tile_size, j*tile_size:(j+1)*tile_size]
+                C_tile = A_tile @ B_tile
+                C[i*tile_size:(i+1)*tile_size, j*tile_size:(j+1)*tile_size] += C_tile       
+    
+    return C
+    # pass
+        
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PART 3: COMPLEXITY ANALYSIS  (fill in the blanks)
+# ─────────────────────────────────────────────────────────────────────────────
+"""
+Let M, K, N be the matrix dimensions and b be the tile size.
+Let T = M/b, S = K/b, U = N/b  (number of tiles along each axis).
+
+
+For Naive GEMM vs. Tiled GEMM, let us compute compexity:
+* Total FLOPs (multiply-add ops)
+O(M * N * K)
+same
+* Total memory reads(# of element loads)
+O(M * N * K)
+
+tiled: O(M / tile_size * K/tile_size * N  / tile_size * (tile_size ** 2)) = O(M * N * K / tile_size)
+O(M * N)
+
+
+* Working-set per innermost iteration
+* Arithmetic intensity (FLOPs / bytes loaded)
+
+Why the tiled version runs faster?
+
+
+Q2:  On a GPU, a thread block typically loads tiles of A and B into shared
+     memory before computing.  What is the size (in elements) of shared
+     memory needed per thread block for one tile of A and one tile of B?
+
+
+Q3:  If we double the tile size b, what happens to:
+       (a) the number of shared-memory loads from global memory?
+       (b) the shared-memory requirement per block?
+       (c) the arithmetic intensity?
+
+
+Q4 (Bonus):  In practice, why can't we just keep increasing the tile size
+     indefinitely to get ever-higher arithmetic intensity?
+
+"""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VERIFICATION — run this file to check your implementations
+# ─────────────────────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    A = np.array([
+        [1, 2, 3, 4],
+        [5, 6, 7, 8],
+        [9, 10, 11, 12],
+        [13, 14, 15, 16]
+    ], dtype=np.float64)
+
+    B = np.array([
+        [16, 15, 14, 13],
+        [12, 11, 10, 9],
+        [8, 7, 6, 5],
+        [4, 3, 2, 1]
+    ], dtype=np.float64)
+
+    expected = A @ B
+
+    print("A =")
+    print(A)
+    print("\nB =")
+    print(B)
+    print("\nExpected (A @ B) =")
+    print(expected)
+
+    # --- Naive ---
+    C_naive = gemm_naive(A, B)
+    if C_naive is not None:
+        print("\nNaive GEMM result =")
+        print(C_naive)
+        print("Naive correct:", np.allclose(C_naive, expected))
+    else:
+        print("\nNaive GEMM: not implemented yet")
+
+    # --- Tiled (tile_size=2) ---
+    C_tiled = gemm_tiled(A, B, tile_size=2)
+    if C_tiled is not None:
+        print("\nTiled GEMM (tile_size=2) result =")
+        print(C_tiled)
+        print("Tiled correct:", np.allclose(C_tiled, expected))
+    else:
+        print("\nTiled GEMM: not implemented yet")
