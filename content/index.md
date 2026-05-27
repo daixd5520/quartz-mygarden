@@ -64,14 +64,14 @@ aliases:
 
 ### 工作与项目经历
 
-**阿里通义实验室，AI infra**
+**阿里通义实验室，AI infra工程师**
 
 2026.05 - 至今
 
 - 主要做 Agent 容器调度相关工作
 - 之前完全没接触过这个方向，陌生让我兴奋，从零开始学习
 
-**字节跳动-懂车帝，LLM 算法工程师 / AI 搜索**
+**字节跳动-懂车帝，LLM 算法工程师 - AI 搜索**
 
 2026.02 - 至今
 
@@ -79,27 +79,27 @@ aliases:
 - 设计并落地基于 LLM 规划的结构化检索框架，将用户 Query 转化为符合业务 Schema 的 XML 查询指令，并通过多阶段校验提升结构化结果稳定性，降低幻觉风险
 - 优化检索与排序链路，引入 Hard Case 负采样 Finetune，将意图边界识别准确率由 58% 提升至 98.07%；设计纠错式 SFT 缓解结构化约束偏差问题，并将核心模块 P90 耗时控制在 91ms
 
-**优刻得科技股份有限公司 (UCloud)，算法工程师 / LLM 训练优化 & RAG 系统**
+**优刻得科技股份有限公司 (UCloud)，算法工程师 - LLM 训练优化 & RAG 系统**
 
 2023.07 - 2024.04
 
-- 大模型分布式训练监管平台：面向大规模客户提供分布式训练服务，需统一调度同构/异构计算集群。编写 DeepSpeed + Pipeline 并行训练代码；调研国产显卡软件栈并适配 ChatGLM、LLaMA 等主流模型，成功打通异构集群统一调度链路
-- "识问"内部知识问答机器人：针对公司内部文档学习路径冗长的痛点，构建企业级 RAG 系统。使用 BGE-large 对内部文档知识库进行向量化嵌入并存入 Milvus 向量数据库，对 Qwen-14B 进行 RAG 与问题分类方向的 LoRA 微调，结合 Reranker 增强检索质量。微调后回答正确率相比直接调用 GPT-3.5 提升 9.5%
+- 大模型分布式训练监管平台：面向大规模客户提供分布式训练服务，需统一调度同构/异构计算集群。调研国产显卡软件栈并适配 ChatGLM、LLaMA 等主流模型
+- "识问"内部知识问答机器人：针对公司内部文档学习路径冗长的痛点，构建企业级 RAG 系统。
 
 **LLM 动态推理由分类开发，核心开发者 / LLM CoT 优化**
 
 2025.06 - 2025.09
 
 - 当前 LLM 在文本分类中存在"推理盲区"，依赖表面词汇捷径而非深层逻辑；盲目对所有样本使用 CoT 开销冗余。受认知双过程理论启发，设计并实现 RICO 动态推理路由框架
-- 构建 System 1（直接预测）与 System 2（CoT+ 多投票）双轨架构，基于置信度、Margin、熵进行加权动态路由，仅将高难度样本交由 System 2 处理；使用强教师 LLM 生成的 CoT 数据蒸馏微调目标模型
+- 构建 System 1（直接预测）与 System 2（CoT+ 多投票）双轨架构，基于置信度、Margin、熵进行加权动态路由；使用强教师 LLM 生成的 CoT 数据蒸馏微调目标模型
 - 在 6 个长短文本分类基准上实现最优精度-效率权衡，小参数模型性能全面反超更大参数量的 Vanilla LLM
 
 ---
 
 ### 专业技能
 
-- 框架与生态：PyTorch, DeepSpeed, vLLM, Transformers, LLaMAFactory
-- 系统与计算：CUDA Programming, 分布式训练 (DP/TP/PP), GPU 显存优化 (ZeRO), Docker, K8s
+- 框架与语言：PyTorch, DeepSpeed, vLLM, Transformers, VeRL, C/C++, Go 
+- 系统与计算：CUDA Programming, 分布式训练, GPU 显存优化, Docker, K8s
 - 算法与微调：SFT Data Mining, PEFT, Prompt Engineering, RAG, CoT, Agent
 - 英语水平：CET4 643 分, CET6 563 分
 
