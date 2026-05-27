@@ -98,7 +98,7 @@ aliases:
 
 ### 专业技能
 
-- 框架与语言：PyTorch, DeepSpeed, vLLM, Transformers, VeRL, C/C++, Go 
+- 框架与语言：PyTorch, DeepSpeed, vLLM, Transformers, VeRL, C/C++, Go
 - 系统与计算：CUDA Programming, 分布式训练, GPU 显存优化, Docker, K8s
 - 算法与微调：SFT Data Mining, PEFT, Prompt Engineering, RAG, CoT, Agent
 - 英语水平：CET4 643 分, CET6 563 分
@@ -109,7 +109,7 @@ aliases:
 
 **ASPIRE: Hard Sample Mining for Supervised Fine-Tuning in LLMs**
 
-学生一作 · ICML · CCF-A · 在投
+学生一作 · Frontiers of Computer Science · CCF-B期刊 · 在投
 
 - 提出双策略困难样本挖掘框架：ASPIRE-S 基于 Reward Model 分差 ΔS 进行课程化排序，ASPIRE-D 基于跨 Epoch 训练 Loss 动态加权量化样本难度
 - 在 Dolly/Alpaca/Wizard 上微调 LLaMA-2 与 Gemma-2，超越全量微调基线，并在 108M 轻量 RM 下保持高鲁棒性
@@ -123,7 +123,7 @@ aliases:
 
 **HOLA: Hyperbolic Low-Rank Adaptation for Graph Transfer Learning**
 
-学生一作 · ICML · CCF-A · 在投
+学生一作 · NeurIPS · CCF-A · 在投
 
 - 针对 LoRA 与双曲流形不兼容的问题，在切空间执行低秩更新，并引入时间重构算子修复双曲几何自洽性，结合 MMD 损失实现跨域特征对齐
 - 以低于 1% 的参数量持续超越欧氏空间 SOTA 基线，显著缓解拓扑偏差引起的负迁移
