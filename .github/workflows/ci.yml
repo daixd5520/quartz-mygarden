@@ -40,6 +40,15 @@ jobs:
           
           :root {
             --title-scale: 1.25;
+            --accent: #d97706;
+            --accent-light: #f59e0b;
+            --accent-bg: #fffbeb;
+            --card-bg: #ffffff;
+            --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+          }
+          
+          html {
+            background: linear-gradient(135deg, #fefcf7 0%, #fdf6e3 100%);
           }
           
           h1, h2, h3, h4, h5, h6 {
@@ -47,22 +56,42 @@ jobs:
             line-height: 1.2 !important;
             margin-top: 1.5em !important;
             margin-bottom: 0.5em !important;
+            color: #1f2937 !important;
           }
           
           h1 {
             font-size: 2.2rem !important;
+            background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
           }
           
           h2 {
             font-size: 1.8rem !important;
+            position: relative;
+            padding-left: 1em;
+          }
+          
+          h2::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0.3em;
+            width: 6px;
+            height: 1.2em;
+            background: linear-gradient(180deg, #d97706 0%, #f59e0b 100%);
+            border-radius: 3px;
           }
           
           h3 {
             font-size: 1.5rem !important;
+            color: #374151 !important;
           }
           
           h4 {
             font-size: 1.25rem !important;
+            color: #4b5563 !important;
           }
           
           .article-title {
@@ -70,24 +99,78 @@ jobs:
             font-weight: 800 !important;
           }
           
+          article {
+            background: var(--card-bg) !important;
+            padding: 2.5em !important;
+            border-radius: 16px !important;
+            box-shadow: var(--card-shadow) !important;
+          }
+          
           article p {
             text-indent: 2em !important;
-            line-height: 1.75 !important;
+            line-height: 1.8 !important;
             margin-top: 0.8em !important;
             margin-bottom: 0.8em !important;
-            text-align: justify !important;
+            color: #374151 !important;
+          }
+          
+          article a {
+            color: var(--accent) !important;
+            text-decoration: none !important;
+            border-bottom: 2px solid transparent !important;
+            transition: all 0.2s ease !important;
+          }
+          
+          article a:hover {
+            color: var(--accent-light) !important;
+            border-bottom-color: var(--accent-light) !important;
           }
           
           article ul,
           article ol {
             margin-left: 2em !important;
-            line-height: 1.7 !important;
+            line-height: 1.8 !important;
+          }
+          
+          article li {
+            margin: 0.3em 0 !important;
           }
           
           article blockquote {
-            margin-left: 1.5em !important;
-            padding-left: 1.5em !important;
-            border-left: 4px solid var(--light) !important;
+            margin: 1.5em 0 !important;
+            padding: 1em 1.5em !important;
+            background: var(--accent-bg) !important;
+            border-left: 4px solid var(--accent) !important;
+            border-radius: 0 8px 8px 0 !important;
+            font-style: italic !important;
+            color: #78350f !important;
+          }
+          
+          article code {
+            background: var(--accent-bg) !important;
+            padding: 0.2em 0.5em !important;
+            border-radius: 4px !important;
+            color: #92400e !important;
+            font-size: 0.9em !important;
+          }
+          
+          article pre {
+            background: #1f2937 !important;
+            border-radius: 12px !important;
+            padding: 1.5em !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+          }
+          
+          .dark article {
+            background: #1f2937 !important;
+          }
+          
+          .dark article p {
+            color: #d1d5db !important;
+          }
+          
+          .dark h1, .dark h2, .dark h3, .dark h4 {
+            color: #f9fafb !important;
           }
           EOF
       - name: Setup Node.js
