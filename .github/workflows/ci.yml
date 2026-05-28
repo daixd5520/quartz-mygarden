@@ -30,11 +30,7 @@ jobs:
         run: |
           cd quartz
           mkdir -p quartz/styles/themes
-          curl -s -S -L "https://raw.githubusercontent.com/saberzero1/quartz-themes/master/themes/catppuccin/_index.scss" -o quartz/styles/themes/_index.scss
-          curl -s -S -L "https://raw.githubusercontent.com/saberzero1/quartz-themes/master/themes/catppuccin/README.md" -o quartz/styles/themes/README.md
-          curl -s -S -L "https://raw.githubusercontent.com/saberzero1/quartz-themes/master/themes/catppuccin/publish.css" -o quartz/styles/themes/publish.css
           echo '@use "./base.scss";' > quartz/styles/custom.scss
-          echo '@use "./themes";' >> quartz/styles/custom.scss
           echo '// put your custom CSS here!' >> quartz/styles/custom.scss
           cat >> quartz/styles/custom.scss << 'EOF'
           
